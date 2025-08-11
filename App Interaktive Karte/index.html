@@ -9,18 +9,19 @@
       margin: 0;
     }
 
-    .map-container {
-      position: relative;
-      width: 100%;
-      max-width: 1920px;
-      aspect-ratio: 16 / 9;
-      margin: auto;
-      background-image: url("bilder/TXL Lageplan LAF-vektorisiert_013_HD(1).png");
-      background-size: contain;
-      background-position: center;
-      background-repeat: no-repeat;
-   }
-
+.map-container {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  max-width: 100%;              
+  margin: 0 auto;
+  background-image: url("bilder/TXL Lageplan LAF-vektorisiert_013_HD(1).png");
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+    
 .language-switcher {
   position: absolute;
   top: 3.6%;
@@ -959,6 +960,7 @@ function startBus() {
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </body>
 </html>
+
 
 
 
