@@ -52,16 +52,17 @@
 
 .info-box {
   position: absolute;
-  background: #FFFFFF;
+  background: #fff;
   border: 4px groove #40e0d0;
-  padding: 15px;
+  padding: 12px;
   border-radius: 10px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.25);
   display: none;
-  max-width: 300px;
+  max-width: clamp(260px, 42vw, 340px);
   overflow-y: auto;
   z-index: 12;
   box-sizing: border-box;
+  font-size: clamp(13px, 2.6vw, 16px);
 }
 
 .popup-overlay {
@@ -960,6 +961,7 @@ function startBus() {
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </body>
 </html>
+
 
 
 
