@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interaktive Karte – Malte App</title>  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+    }
+
+    .map-container {
+      position: relative;
+      width: 100%;
+      max-width: 1920px;
+      aspect-ratio: 16 / 9;
+      margin: auto;
+      background-image: url("bilder/TXL Lageplan LAF-vektorisiert_013_HD(1).png");
+      background-size: contain;
+      background-position: center;
+      background-repeat: no-repeat;
+   }
+
+.language-switcher {
+  position: absolute;
+  top: 3.6%;
+  right: 1%;
+  z-index: 20;
+  background-color: rgba(255, 255, 255, 0.9);
+  padding: 0.6% 1%;     
+  border-radius: 0.8vw;           /* responsive Rundung */
+  font-size: 1vw;                 /* dynamisch an Bildschirmbreite angepasst */
+  display: flex;
+  align-items: center;
+  gap: 0.6vw;
+}
+
+.language-switcher label {
+  font-weight: bold;
+  white-space: nowrap;
+  font-size: 1vw;
+}
+
+.language-switcher select {
+  font-size: 1vw;                 /* entspricht etwa 16px auf 1920px */
+  padding: 0.4% 0.6%;             /* responsive Innenabstand */
+  border-radius: 0.4vw;
+  border: 0.1vw solid #ccc;
+  background-color: #fff;
+}
+
+.info-box {
+  position: absolute;
+  background: #FFFFFF;
+  border: 4px groove #40e0d0;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  display: none;
+  max-width: 300px;
+  overflow-y: auto;
+  z-index: 12;
+  box-sizing: border-box;
+}
+
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popup-content {
+  background: white;
+  width: 90%;
+  height: 80%;
+  border-radius: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.popup-close {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  font-size: 28px;
+  cursor: pointer;
+  z-index: 10000;
+}
+
+
+
+.icon-Sandburg,
+.icon-L1,
+.icon-L2,
+.icon-H,
+.icon-D3,
+.icon-Kleiderkammer,
+.icon-Krümelecke,
+.icon-M5,
+.icon-VWG1,
+.icon-VWG2,
+.icon-Med,
+.icon-VWG3,
+.icon-P5,
+.icon-Q,
+.icon-Q1,
+.icon-KrähenwaldIcon,
+.icon-Waschsalon,
+.icon-Bus,
+.icon-Clowns,
+.icon-Begleitdienst,
+.icon-Checkin,
+.icon-Infopoint,
+.icon-Bistro,
+.icon-Post,
+.icon-Sprachmittlung{
+  position: absolute;
+  width: 3.05%;
+  height: 3.05%;
+  cursor: pointer;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-WS  {
+  position: absolute;
+  width:9%;
+  height:9%;
+  cursor: pointer;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-Sozialerdienst {
+  position: absolute;
+  width:4.5%;
+  height:4.5%;
+  cursor: pointer;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+.icon-Malteapp {
+  position: absolute;
+  width:10%;
+  height:10%;
+  cursor: pointer;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-Sandburg img,
+.icon-L1 img,
+.icon-L2 img,
+.icon-H img,
+.icon-D3 img,
+.icon-Kleiderkammer img,
+.icon-Krümelecke img,
+.icon-M5 img,
+.icon-VWG1 img,
+.icon-VWG2 img,
+.icon-Med img,
+.icon-VWG3 img,
+.icon-P5 img,
+.icon-Q img,
+.icon-Q1 img,
+.icon-KrähenwaldIcon img,
+.icon-Waschsalon img,
+.icon-Bus img,
+.icon-Clowns img,
+.icon-Begleitdienst img,
+.icon-Checkin img,
+.icon-Infopoint img,
+.icon-Bistro img,
+.icon-Post img,
+.icon-Sprachmittlung img {
+  width: 70%; 
+  height: auto;
+  transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
+  pointer-events: none;
+}
+
+.icon-WS img {
+  width: 100%; 
+  height: auto;
+  transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
+  pointer-events: none;
+}
+
+.icon-Sozialerdienst img {
+  width: 100%; 
+  height: auto;
+  transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
+  pointer-events: none;
+}
+
+.icon-Malteapp img {
+  width: 100%; 
+  height: auto;
+  transition: transform 0.2s ease-in-out, filter 0.2s ease-in-out;
+  pointer-events: none;
+}
+
+.icon-Sandburg:hover img,
+.icon-L1:hover img,
+.icon-L2:hover img,
+.icon-H:hover img,
+.icon-D3:hover img,
+.icon-Kleiderkammer:hover img,
+.icon-Krümelecke:hover img,
+.icon-M5:hover img,
+.icon-VWG1:hover img,
+.icon-VWG2:hover img,
+.icon-Med:hover img,
+.icon-VWG3:hover img,
+.icon-P5:hover img,
+.icon-Q:hover img,
+.icon-Q1:hover img,
+.icon-KrähenwaldIcon:hover img,
+.icon-WS:hover img,
+.icon-Waschsalon:hover img,
+.icon-Bus:hover img,
+.icon-Clowns:hover img,
+.icon-Begleitdienst:hover img,
+.icon-Checkin:hover img,
+.icon-Infopoint:hover img,
+.icon-Sozialerdienst:hover img,
+.icon-Bistro:hover img, 
+.icon-Post:hover img,
+.icon-Sprachmittlung:hover img,
+.icon-Malteapp:hover img {
+  transform: scale(1.5);
+  filter: drop-shadow(0 0 6px rgba(0, 188, 212, 0.8));
+}
+
+@keyframes drivePart1 {
+  from { offset-distance: 0%; }
+  to   { offset-distance: 22%; }
+}
+
+@keyframes drivePart2 {
+  from { offset-distance: 22%; }
+  to   { offset-distance: 100%; }
+}
+
+#bus {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3.5%;
+  offset-path: path("m329 333C364.63 332.2817 385 331 417 317 457 296 456 292 493.78 293.37 669.0873 292.452 764.1147 292.452 859.142 292.452 1047.7233 292.452 1236.3047 292.452 1407.909 291.396 1458 303 1460.708 315.298 1455.872 322.941 1348.132 520.274 1210.89 750.247 1086.139 964.627 1084.734 969.309 1082.238 972.118 1088.563 988.871 1091.636 995.402 1091.911 996.959 1095.947 997.022 1448.705 994.117 1450.7603 996.6473 1487 1001 1552 1016 1597 1024 1612 1006 1632 982 1634 945 1608 930 1581 913 1568 908 1544 896"); 
+  offset-rotate: auto;
+  offset-distance: 0%;
+}
+
+
+#easterEggTrigger {
+  position: absolute;
+  top: 75%;
+  left: 26%;
+  width: 50px;
+  height: 50px;
+  z-index: 25;
+  background-color: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#plane {
+  position: absolute;
+  width:50px;
+  top: 75%;      
+  left: 26%;     
+  z-index: 20;
+  transition: left 4s linear, top 4s ease-in-out, transform 4s ease-in-out; 
+}
+  
+ .close-btn {
+      float: right;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    h1, h2 {
+      text-align: center;
+      color: black;
+      text-shadow: none;
+      padding: 10px 0;
+    }
+
+ </style>
+</head>
+
+<body>
+  <div class="map-container">
+    <!-- Sprachwahl -->
+    <div class="language-switcher">
+  <span class="language-label">🌐</span>
+  <select id="language-select" onchange="changeLanguage()">
+        <option value="de">Deutsch</option>
+        <option value="en">English</option>
+        <option value="tr">Türkçe</option>
+        <option value="uk">Українська</option>
+        <option value="ru">Русский</option>
+        <option value="ar">العربية</option>
+        <option value="fa">فارسی</option>
+      </select>
+    </div>
+
+<div id="easterEggTrigger"></div>
+
+<div id="popupOverlay" class="popup-overlay" style="display: none;">
+  <div class="popup-content">
+    <span class="popup-close" onclick="closePopup()">×</span>
+    <iframe id="popupIframe" src="" frameborder="0" style="width: 100%; height: 100%;"></iframe>
+  </div>
+</div>
+
+<img id="bus" src="bilder/bus.png" alt="Bus" class="bus" />
+
+ <!-- Icons -->
+
+<div class="icon-Malteapp" style="top: 41%; left: 76%;" onclick="openPopup('https://malteapp.de/ua-txl-berlin/de')">
+  <img src="icons/MalteappIcon.png" alt="Malte App Icon" />
+</div>
+
+<div class="icon-L1" style="top: 20.3%; left: 14.7%;" onclick="openBox('infoBoxL1', event)">
+  <img src="icons/L1Icon.png" alt="L1 Icon" />
+</div>
+
+<div class="icon-L2" style=" left: 14.7%; top: 10.5%;" onclick="openBox('infoBoxL1', event)"> 
+  <img src="icons/L2Icon.png" alt="L2 Icon" />
+</div>
+
+<div class="icon-Sandburg" style="left:24.7%; top:5.9%;" onclick="openBox('infoBoxSandburg', event)">
+  <img src="icons/SandburgIcon.png" alt="Sandburg Icon" />
+</div>
+
+<div class="icon-H" style="top: 18.7%; left: 28.25%;" onclick="openBox('infoBoxH', event)">
+  <img src="icons/HIcon.png" alt="H Icon" />
+</div>
+
+<div class="icon-D3" style="top: 9.7%; left: 54.4%;" onclick="openBox('infoBoxD3', event)">
+  <img src="icons/D3Icon.png" alt="D3 Icon" />
+</div>
+
+<div class="icon-Kleiderkammer" style="top: 14.2%; left: 54.4%;" onclick="openBox('infoBoxKleiderkammer', event)">
+  <img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer Icon" />
+</div>
+
+<div class="icon-Krümelecke" style="top: 37.9%; left: 28.25%;" onclick="openBox('infoBoxkrümelecke', event)">
+  <img src="icons/KrümeleckeIcon.png" alt="Krümelecke Icon" />
+</div>
+
+<div class="icon-M5" style="top: 54.5%; left: 61.5%;" onclick="openBox('infoBoxM5', event)">
+  <img src="icons/M5Icon.png" alt="M5 Icon" />
+</div>
+
+<div class="icon-VWG1" style="top: 54.8%; left: 41.7%;" onclick="openBox('infoBoxVWG1', event)">
+  <img src="icons/VWG1Icon.png" alt="VWG1 Icon" />
+</div>
+
+<div class="icon-VWG2" style="top: 52.48%; left: 38.02%;" onclick="openBox('infoBoxVWG2', event)">
+  <img src="icons/VWG2Icon.png" alt="VWG2 Icon" />
+</div>
+
+<div class="icon-Med" style="top: 57.8%; left: 39.7%;" onclick="openBox('infoBoxMP', event)">
+  <img src="icons/MedIcon.png" alt="Med Icon" />
+</div>
+
+<div class="icon-VWG3" style="top: 57.45%; left: 45.18%;" onclick="openBox('infoBoxVWG3', event)">
+  <img src="icons/VWG3Icon.png" alt="VWG3 Icon" />
+</div>
+
+<div class="icon-P5" style="top: 57.49%; left: 33.25%;" onclick="openBox('infoBoxP5', event)">
+  <img src="icons/P5Icon.png" alt="P5 Icon" />
+</div>
+
+<div class="icon-Q" style="top: 88.9%; left: 50.0%;" onclick="openBox('infoBoxQ', event)">
+  <img src="icons/QIcon.png" alt="Q Icon" />
+</div>
+
+<div class="icon-Q1" style="top: 88.4%; left: 44.4%;" onclick="openBox('infoBoxQ1', event)">
+  <img src="icons/Q1Icon.png" alt="Q1 Icon" />
+</div>
+
+<div class="icon-KrähenwaldIcon" style="top: 65.5%; left: 34.5%;" onclick="openBox('infoBoxKW', event)">
+  <img src="icons/KrähenwaldIcon.png" alt="KrähenwaldIcon" />
+</div>
+
+
+<div class="icon-WS" style="top: 89%; left: 74.5%;" onclick="openBox('infoBoxWillkommensschule', event)">
+  <img src="icons/WSIcon.png" alt="WSIcon" />
+</div>
+
+<div class="icon-Waschsalon" style="top: 68%; left: 40.5%;" onclick="openBox('infoBoxWaschsalon', event)">
+  <img src="icons/WaschsalonIcon.png" alt="WaschsalonIcon" />
+</div>
+
+<div class="icon-Bus" style="top: 27.35%; left: 42.5%;" onclick="openBox('infoBoxBus', event); startBus();">
+  <img src="icons/BusIcon.png" alt="BusIcon" />
+</div>
+
+
+<div class="icon-Clowns" style="top:28%; left:60%;" onclick="openBox('infoBoxClowns', event)">
+  <img src="icons/ClownsIcon.png" alt="ClownsIcon" />
+</div>
+
+
+<div class="icon-Begleitdienst" style="top:44%; left:33.1%;" onclick="openBox('infoBoxBegleitdienst', event)">
+  <img src="icons/BegleitdienstIcon.png" alt="Begleitdienst Icon" />
+</div>
+
+<div class="icon-Infopoint" style="top:40.96%; left:37.8%;" onclick="openBox('infoBoxInfopoint', event)">
+  <img src="icons/InfopointIcon.png" alt="Infopoint Icon" />
+</div>
+
+<div class="icon-Sozialerdienst" style="top:33.5%; left:27.3%;" onclick="openBox('infoBoxSozialerdienst', event)">
+  <img src="icons/SozialerdienstIcon.png" alt="Infopoint Icon" />
+</div>
+
+<div class="icon-Checkin" style="top:39%; left:33.1%;" onclick="openBox('infoBoxCheckin', event)">
+  <img src="icons/CheckinIcon.png" alt="Infopoint Icon" />
+</div>
+
+<div class="icon-Sprachmittlung" style="top:44%; left:35.5%;" onclick="openBox('infoBoxSprachmittlung', event)">
+  <img src="icons/SprachmittlungIcon.png" alt="Infopoint Icon" />
+</div>
+
+
+<div class="icon-Bistro" style="top:44%; left:44.5%;" onclick="openBox('infoBoxBistro', event)">
+  <img src="icons/BistroIcon.png" alt="Infopoint Icon" />
+</div>
+
+<div class="icon-Post" style="top:39%; left:45.2%;" onclick="openBox('infoBoxPost', event)">
+  <img src="icons/PostIcon.png" alt="Infopoint Icon" />
+</div>
+
+ <!-- Infoboxen -->
+
+
+    <div class="info-box" id="infoBoxP5">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Test P5.png" alt="Freizeitbereich P5" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+
+
+    <div class="info-box" id="infoBoxD3">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Test D3.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p class="letter">L</p>
+    </div>
+
+
+    <div class="info-box" id="infoBoxKleiderkammer">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Kleiderkammer.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxM5">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/M5.png" style="width: 100%; margin-bottom: 10px;">
+      <h3>Aufenthaltsbereich M5</h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxSandburg">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+    <img src="bilder/Sandburg.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<div class="info-box" id="infoBoxH">
+  <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+    <img src="bilder/Freifläche H.png" style="width: 100%; margin-bottom: 10px;">
+  <h3></h3>
+  <p></p>
+  <p></p>
+  <p></p>
+</div>
+
+
+
+    <div class="info-box" id="infoBoxL1">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxkrümelecke">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Krümelecke.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxQ">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/TestQ.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxWillkommensschule">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Willkommensschule.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<div class="info-box" id="infoBoxVWG1">
+  <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+  <h3></h3>
+  <p></p>
+  <p></p>
+  <p></p>
+</div>
+
+<div class="info-box" id="infoBoxVWG2">
+  <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+ <img src="bilder/VWG2.png" style="width: 100%; margin-bottom: 10px;">
+  <h3></h3>
+  <p></p>
+  <p></p>
+  <p></p>
+</div>
+
+
+<div class="info-box" id="infoBoxVWG3">
+  <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+ <img src="bilder/VWG3.png" style="width: 100%; margin-bottom: 10px;">
+  <h3></h3>
+  <p></p>
+  <p></p>
+  <p></p>
+</div>
+
+<div class="info-box" id="infoBoxKW">
+ <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+ <img src="bilder/KW Test.png" style="width: 100%; margin-bottom: 10px;">
+  <h3></h3>
+  <p></p>
+  <p></p>
+</div>
+
+  <div class="info-box" id="infoBoxMP">
+    <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/ErsteHilfe.png" style="width: 100%; margin-bottom: 10px;">
+    <h3></h3>
+    <p></p>
+    <p></p>
+  </div>
+
+  <div class="info-box" id="infoBoxQ1">
+    <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+    <h3></h3>
+    <p></p>
+    <p></p>
+    <p></p>
+  </div>
+
+<div class="info-box" id="infoBoxWaschsalon">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Waschsalon.png" alt="Freizeitbereich P5" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<div class="info-box" id="infoBoxBus">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Businfo.png" alt="Freizeitbereich P5" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<div class="info-box" id="infoBoxClowns">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Clowns.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<div class="info-box" id="infoBoxBegleitdienst">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Begleitdienst.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+
+    <div class="info-box" id="infoBoxBistro">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/3Koeche.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxSprachmittlung">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxCheckin">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/CheckIn.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxSozialerdienst">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/SozialeDienste.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<div class="info-box" id="infoBoxInfopoint">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Infopoint.png" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<div class="info-box" id="infoBoxPost">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+    <div class="info-box" id="infoBoxPlane">
+      <span class="close-btn" onclick="hideAllInfoBoxes()">×</span>
+      <img src="bilder/Tegelquest.png" alt="Freizeitbereich P5" style="width: 100%; margin-bottom: 10px;">
+      <h3></h3>
+      <p></p>
+      <p></p>
+      <p></p>
+      <p></p>
+    </div>
+
+<img id="plane" src="bilder/flugzeug.png" alt="Flugzeug" />
+</div>
+
+
+<script src="translations.js"></script>
+
+<script>
+  let currentLang = "de"; 
+
+// === Easter Egg: Flugzeug + Konfetti + Seitenreload ===
+
+let tapCount = 0;
+let lastTapTime = 0;
+let animationAlreadyPlayed = false;
+document.getElementById('easterEggTrigger').addEventListener('click', (event) => {
+  openBox('infoBoxPlane', event); // InfoBox öffnen
+
+  // Tap-Logik für Animation
+  const now = Date.now();
+
+  if (now - lastTapTime < 500) {
+    tapCount++;
+  } else {
+    tapCount = 1;
+  }
+
+  lastTapTime = now;
+
+  if (tapCount >= 3) {
+    tapCount = 0;
+    triggerPlaneAnimation();
+  }
+});
+
+function triggerPlaneAnimation() {
+  if (animationAlreadyPlayed) return;
+  animationAlreadyPlayed = true;
+
+  hideAllInfoBoxes();
+
+  const plane = document.getElementById('plane');
+
+  // Flugzeuganimation starten
+  plane.style.transition = 'all 4.2s ease';
+  plane.style.left = '85%';
+  plane.style.top = '26%';
+  plane.style.transform = 'scale(10)';
+
+  // Nach 4.2s: Konfetti starten
+  setTimeout(() => {
+    confetti({
+      particleCount: 150,
+      spread: 300,
+      origin: { y: 0.7 }
+    });
+
+    confetti({
+      particleCount: 250,
+      startVelocity: 45,
+      spread: 240,
+      ticks: 120,
+      scalar: 1.1,
+      origin: { x: 0.5, y: 0.3 }
+    });
+  }, 4200);
+
+  // Nach 7.4s: Seite neu laden
+  setTimeout(() => {
+    location.reload();
+  }, 7400);
+}
+
+// === Sprachumschaltung ===
+
+function changeLanguage() {
+  currentLang = document.getElementById("language-select").value;
+  updateContent();
+}
+
+function updateContent() {
+  const areas = [
+ "Bistro", "Sprachmittlung", "Checkin","Sozialerdienst", "Begleitdienst","D3", "Kleiderkammer", "P5", "M5", "Sandburg", "L1", "krümelecke", "Q","Q1",
+    "Willkommensschule", "VWG1", "VWG2", "VWG3", "KW", "MP", "H","Clowns","Waschsalon","Bus","Infopoint","Post","Plane",
+  ];
+
+  areas.forEach(area => {
+    const box = document.getElementById("infoBox" + area);
+    const data = translations[area]?.[currentLang];
+
+    if (box && data) {
+      const h3 = box.querySelector("h3");
+      const ps = box.querySelectorAll("p");
+
+      if (h3) h3.innerHTML = data.title || "";
+      if (ps[0]) ps[0].innerHTML = data.time || "";
+      if (ps[1]) ps[1].innerHTML = data.text || "";
+
+      if (Array.isArray(data.links)) {
+        data.links.forEach((link, index) => {
+          const p = ps[index + 2];
+          if (p) {
+           p.innerHTML = `${link.label} <a href="#" onclick="openPopup('${link.url}'); return false;">${link.text}</a>.`;
+          }
+        });
+        for (let i = data.links.length + 2; i < ps.length; i++) {
+          ps[i].innerHTML = "";
+        }
+      } else {
+        for (let i = 2; i < ps.length; i++) {
+          ps[i].innerHTML = "";
+        }
+      }
+    }
+  });
+}
+
+function openPopup(url) {
+  const overlay = document.getElementById("popupOverlay");
+  const iframe = document.getElementById("popupIframe");
+
+  // Wenn PDF, direkt anzeigen mit embed
+  if (url.toLowerCase().endsWith(".pdf")) {
+    iframe.outerHTML = `<embed id="popupIframe" src="${url}" type="application/pdf" style="width: 100%; height: 100%;">`;
+  } else {
+    iframe.outerHTML = `<iframe id="popupIframe" src="${url}" frameborder="0" style="width: 100%; height: 100%;"></iframe>`;
+  }
+
+  overlay.style.display = "flex";
+}
+
+
+function closePopup() {
+  const overlay = document.getElementById("popupOverlay");
+  const iframe = document.getElementById("popupIframe");
+
+  // Wenn PDF eingebettet war, ist das kein echtes iframe mehr – also einfach auf leer setzen
+  if (iframe) {
+    iframe.src = "";
+  }
+
+  overlay.style.display = "none";
+}
+
+
+
+
+// === InfoBox öffnen + positionieren ===
+
+function openBox(boxId, event) {
+  event.stopPropagation();
+  hideAllInfoBoxes();
+
+  const box = document.getElementById(boxId);
+  const icon = event.currentTarget;
+  const container = document.querySelector(".map-container");
+
+  if (!box || !icon || !container) return;
+
+  updateContent();
+
+  // Temporär anzeigen, um Höhe zu messen
+  box.style.visibility = "hidden";
+  box.style.display = "block";
+
+  const offsetX = 20;
+  const offsetY = -10;
+  const maxWidth = 300;
+
+  const iconRect = icon.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  const boxWidth = box.offsetWidth || maxWidth;
+  const boxHeight = box.offsetHeight || 200;
+
+  const iconX = iconRect.left - containerRect.left;
+  const iconY = iconRect.top - containerRect.top;
+
+  // Horizontal: rechts oder links
+
+const isLeftHalf = iconX < containerRect.width / 2;
+let left;
+if (isLeftHalf) {
+  left = iconX + icon.offsetWidth + offsetX;
+} else {
+  left = iconX - boxWidth - offsetX;
+  if (left < 10) left = 10;
+}
+
+
+
+  // Vertikal: möglichst beim Icon, aber an Container-Höhe angepasst
+  let top = iconY + offsetY;
+  if (top + boxHeight > containerRect.height) {
+    top = containerRect.height - boxHeight - 10;
+  }
+  if (top < 10) top = 10;
+
+  // Anwenden
+  box.style.left = `${left}px`;
+  box.style.top = `${top}px`;
+  box.style.visibility = "visible"; // wieder sichtbar
+}
+
+// === Alle InfoBoxen schließen ===
+
+function hideAllInfoBoxes() {
+  document.querySelectorAll('.info-box').forEach(box => {
+    box.style.display = 'none';
+  });
+}
+
+// === Klick außerhalb der Box schließt alles ===
+
+document.addEventListener('click', function (event) {
+  const isCircle = event.target.closest('.clickable-circle');
+  const isBox = event.target.closest('.info-box');
+  if (!isCircle && !isBox) {
+    hideAllInfoBoxes();
+  }
+});
+
+function reloadPage() {
+  location.reload();
+}
+function startBus() {
+  const bus = document.getElementById('bus');
+
+  // Reset Animation
+  bus.style.animation = 'none';
+  void bus.offsetWidth;
+
+  // Teil 1: 6 Sekunden
+  bus.style.animation = 'drivePart1 6s linear forwards';
+
+  // Nach 6s + 1s Pause = 7s → Teil 2 starten
+  setTimeout(() => {
+    bus.style.animation = 'none';
+    void bus.offsetWidth;
+
+    // Teil 2: 23 Sekunden
+    bus.style.animation = 'drivePart2 23s linear forwards';
+
+    // Nach weiteren 23s → Seite neu laden
+    setTimeout(() => {
+      location.reload();
+    }, 25000); // 23 Sekunden nach Teil 2 Start
+  }, 7000); // Teil 2 Start nach 7 Sekunden
+}
+
+  </script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</body>
+</html>
+
+
+
