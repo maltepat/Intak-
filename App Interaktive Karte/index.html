@@ -289,12 +289,16 @@ function showMap(){
       setFullscreenVH();
       wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
       const { scale, x, y } = computeFit();
+
+      // 🔹 Offset in Pixeln – negativ = nach links, positiv = nach rechts
+      const xOffset = -200;
+
       if (!panzoomInstance) {
         panzoomInstance = Panzoom(mapEl, {
           maxScale: 4,
           contain: 'outside',
           startScale: scale,
-          startX: x,
+          startX: x + xOffset,
           startY: y,
           animate: true
         });
@@ -304,7 +308,7 @@ function showMap(){
         }, { passive: false });
       }
       panzoomInstance.setOptions({ minScale: scale });
-      panzoomInstance.setTransform({ x, y, scale });
+      panzoomInstance.setTransform({ x: x + xOffset, y, scale });
     };
 
     // Sofort fitten
@@ -407,6 +411,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
