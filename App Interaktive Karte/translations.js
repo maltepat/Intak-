@@ -927,7 +927,7 @@ P5: {
 },
 
 
-krümelecke: {
+Kruemelecke: {
   de: {
     title: "Krümel-Ecke",
     time: "",
@@ -1934,4 +1934,5 @@ Bus: {
     ]
   }
 }
+
 };
