@@ -272,31 +272,19 @@ function showMap(){
   // Tabs / Sichtbarkeit umschalten
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
-  const wrapEl = document.getElementById('mapwrap');
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobile: Vollbild aktivieren + Höhe setzen + überwachen
+  // Mobile: Vollbild aktivieren + Höhe überwachen
   if (isMobile()) {
     enterMapFullscreen();
-    setFullscreenVH();
     enableVHWatchers();
   }
 
-  const mapEl = document.getElementById('map');
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // 1️⃣ Erste Zentrierung direkt nach Bild-Load
-    centerMapOnce();
-
-    // 2️⃣ Zweite Zentrierung nach kurzem Delay (Adressleiste weg)
-    setTimeout(centerMapOnce, 300);
-  });
-
-  function centerMapOnce() {
     requestAnimationFrame(() => {
-      if (isMobile()) setFullscreenVH();
       const { scale, x, y } = computeFit();
 
       if (!panzoomInstance) {
@@ -305,32 +293,28 @@ function showMap(){
           contain: 'outside',
           startScale: scale,
           startX: x,
-          startY: y,
-          animate: true
+          startY: y
         });
 
         wrapEl.addEventListener('wheel', (e) => {
           e.preventDefault();
           panzoomInstance.zoomWithWheel(e);
         }, { passive: false });
-
-        const ro = new ResizeObserver(() => {
-          const t = panzoomInstance.getTransform();
-          const min = panzoomInstance.getOptions().minScale ?? scale;
-          if (Math.abs(t.scale - min) < 0.03) {
-            const f = computeFit();
-            panzoomInstance.setOptions({ minScale: f.scale });
-            panzoomInstance.setTransform({ x: f.x, y: f.y, scale: f.scale });
-          }
-        });
-        ro.observe(wrapEl);
       } else {
         panzoomInstance.setOptions({ minScale: scale });
         panzoomInstance.setTransform({ x, y, scale });
       }
+
+      // 🔹 Zweite Justierung nach kurzer Zeit
+      setTimeout(() => {
+        const fit2 = computeFit();
+        panzoomInstance.setOptions({ minScale: fit2.scale });
+        panzoomInstance.setTransform({ x: fit2.x, y: fit2.y, scale: fit2.scale });
+      }, 100);
     });
-  }
+  });
 }
+
 
 
 
@@ -424,6 +408,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
