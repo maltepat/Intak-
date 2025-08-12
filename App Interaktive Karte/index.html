@@ -276,26 +276,31 @@ function showMap(){
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobile: Vollbild aktivieren + Höhe setzen
+  // Mobile: Vollbild aktivieren + sichtbare Höhe überwachen
   if (isMobile()) {
     enterMapFullscreen();
-    setFullscreenVH(); // Höhe sofort setzen
-    wrapEl.offsetHeight; // 🔹 Zwangs-Layout-Refresh
+    setFullscreenVH();     // Höhe sofort anpassen
     enableVHWatchers();
   }
 
   const mapEl = document.getElementById('map');
   const mapImgEl = document.querySelector('.map-img');
 
-  // Warten bis das Bild geladen ist und Layout steht
+  // Warten bis das Bild geladen ist und das Layout steht
   waitForImage(mapImgEl, () => {
     requestAnimationFrame(() => {
-      setFullscreenVH(); // nochmal zur Sicherheit
+      setFullscreenVH(); // Höhe exakt setzen
+
+      const fitOnce = () => {
+        const { scale, x, y } = computeFit();
+        panzoomInstance.setOptions({ minScale: scale });
+        panzoomInstance.setTransform({ x, y, scale });
+      };
 
       const { scale, x, y } = computeFit();
 
       if (!panzoomInstance) {
-        // Panzoom initialisieren
+        // Panzoom einmalig initialisieren
         panzoomInstance = Panzoom(mapEl, {
           maxScale: 4,
           contain: 'outside',
@@ -311,30 +316,24 @@ function showMap(){
           panzoomInstance.zoomWithWheel(e);
         }, { passive: false });
 
-        // Neu anpassen bei Größenänderung
+        // Resize-Handling
         const ro = new ResizeObserver(() => {
           const t = panzoomInstance.getTransform();
           const min = panzoomInstance.getOptions().minScale ?? scale;
-          if (Math.abs(t.scale - min) < 0.03) {
-            const f = computeFit();
-            panzoomInstance.setOptions({ minScale: f.scale });
-            panzoomInstance.setTransform({ x: f.x, y: f.y, scale: f.scale });
-          }
+          if (Math.abs(t.scale - min) < 0.03) fitOnce();
         });
         ro.observe(wrapEl);
 
+        // 🔹 Direkt nach Init nochmal fitten
+        setTimeout(fitOnce, 50);
+
       } else {
         // Bereits initialisiert → nur anpassen
-        panzoomInstance.setOptions({ minScale: scale });
-        panzoomInstance.setTransform({ x, y, scale });
+        fitOnce();
       }
 
-      // 🔹 Nach 100 ms nochmal nachjustieren
-      setTimeout(() => {
-        const f2 = computeFit();
-        panzoomInstance.setOptions({ minScale: f2.scale });
-        panzoomInstance.setTransform({ x: f2.x, y: f2.y, scale: f2.scale });
-      }, 100);
+      // 🔹 Sicherheits-Fit nach 300 ms
+      setTimeout(fitOnce, 300);
     });
   });
 }
@@ -430,6 +429,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
