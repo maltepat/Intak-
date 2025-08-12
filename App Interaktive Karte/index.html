@@ -267,6 +267,7 @@ function disableVHWatchers() {
     });
   }
 }
+  
 function showMap(){
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
@@ -275,62 +276,67 @@ function showMap(){
 
   if (isMobile()) {
     enterMapFullscreen();
-    setFullscreenVH();
+    setFullscreenVH();     // Höhe sofort setzen
     enableVHWatchers();
   }
 
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
+    const fitMiddleHorizontal = () => {
+      const fit = getFitScale();
+      const wrapW = wrapEl.clientWidth;
+      const wrapH = wrapEl.clientHeight;
+
+      const x = (wrapW - MAP_W * fit) / 2;
+      const y = (wrapH - MAP_H * fit) / 2;
+
+      panzoomInstance.setOptions({ minScale: fit });
+      panzoomInstance.setTransform({ x, y, scale: fit });
+    };
+
+    const initPanzoom = () => {
+      const fit = getFitScale();
+      const wrapW = wrapEl.clientWidth;
+      const wrapH = wrapEl.clientHeight;
+      const startX = (wrapW - MAP_W * fit) / 2;
+      const startY = (wrapH - MAP_H * fit) / 2;
+
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: fit,
+        startX: startX,
+        startY: startY,
+        animate: true
+      });
+
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+      }, { passive: false });
+
+      const ro = new ResizeObserver(() => {
+        const t = panzoomInstance.getTransform();
+        const min = panzoomInstance.getOptions().minScale ?? fit;
+        if (Math.abs(t.scale - min) < 0.03) fitMiddleHorizontal();
+      });
+      ro.observe(wrapEl);
+    };
+
     requestAnimationFrame(() => {
-      const fitMiddleHorizontal = () => {
-        const fit = getFitScale();
-        const wrapW = wrapEl.clientWidth;
-        const wrapH = wrapEl.clientHeight;
-
-        // Mitte horizontal, vertikal wie gehabt
-        const x = (wrapW - MAP_W * fit) / 2;  
-        const y = (wrapH - MAP_H * fit) / 2;  
-
-        panzoomInstance.setOptions({ minScale: fit });
-        panzoomInstance.setTransform({ x, y, scale: fit });
-      };
-
       if (!panzoomInstance) {
-        const fit = getFitScale();
-        const wrapW = wrapEl.clientWidth;
-        const wrapH = wrapEl.clientHeight;
-        const startX = (wrapW - MAP_W * fit) / 2;
-        const startY = (wrapH - MAP_H * fit) / 2;
-
-        panzoomInstance = Panzoom(mapEl, {
-          maxScale: 4,
-          contain: 'outside',
-          startScale: fit,
-          startX: startX,
-          startY: startY,
-          animate: true
-        });
-
-        wrapEl.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          panzoomInstance.zoomWithWheel(e);
-        }, { passive: false });
-
-        const ro = new ResizeObserver(() => {
-          const t = panzoomInstance.getTransform();
-          const min = panzoomInstance.getOptions().minScale ?? fit;
-          if (Math.abs(t.scale - min) < 0.03) fitMiddleHorizontal();
-        });
-        ro.observe(wrapEl);
+        initPanzoom();
       } else {
         fitMiddleHorizontal();
       }
 
-      setTimeout(fitMiddleHorizontal, 200);
+      // Zweites Fitting nach 100ms → verhindert schwarzen Balken
+      setTimeout(fitMiddleHorizontal, 100);
     });
   });
 }
+
 
 
 
@@ -424,6 +430,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
