@@ -230,11 +230,17 @@
     if (isMobile()) { exitMapFullscreen(); disableVHWatchers(); }
   }
 
-  function waitForImage(imgEl, cb) {
-    if (!imgEl) return;
-    if (imgEl.complete) cb();
-    else imgEl.addEventListener('load', cb, { once: true });
-  }
+ function computeCenterFit() {
+  const rect = wrapEl.getBoundingClientRect();
+  // Skaliere so, dass die Höhe exakt passt
+  const scale = rect.height / MAP_H;
+  // X so berechnen, dass die Kartenmitte in der Mitte des Bildschirms ist
+  const x = rect.width / 2 - (MAP_W / 2) * scale;
+  // Y mittig (oder oben, wenn du magst)
+  const y = (rect.height - MAP_H * scale) / 2;
+  return { scale, x, y };
+}
+
 function showMap(){
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
@@ -255,8 +261,8 @@ function showMap(){
       setFullscreenVH();
       wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
 
-      // Normale Fit-Position berechnen
-      const { scale, x, y } = computeFit(0.5); // wir starten zentriert
+      // 🔹 Neue Funktion nutzen, um direkt mittig zu starten
+      const { scale, x, y } = computeCenterFit();
 
       if (!panzoomInstance) {
         panzoomInstance = Panzoom(mapEl, {
@@ -274,13 +280,11 @@ function showMap(){
         }, { passive: false });
       }
 
-      // 🔹 Jetzt manuellen Offset auf X anwenden (in Pixeln)
-      const EXTRA_X_SHIFT = -200; // negative Werte = nach links, positive = nach rechts
       panzoomInstance.setOptions({ minScale: scale });
-      panzoomInstance.setTransform({ x: x + EXTRA_X_SHIFT, y, scale });
+      panzoomInstance.setTransform({ x, y, scale });
     };
 
-    doFit(); 
+    doFit();
     setTimeout(doFit, 150);
   });
 }
@@ -364,6 +368,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
