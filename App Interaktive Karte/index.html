@@ -211,43 +211,50 @@
     if (isMobile()) exitMapFullscreen();
   }
 
-  function showMap(){
-    document.getElementById('tab-map').classList.add('active');
-    document.getElementById('tab-list').classList.remove('active');
-    wrapEl.classList.add('active');
-    document.getElementById('list').style.display='none';
+function showMap(){
+  // Tabs umschalten
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-    if (isMobile()) enterMapFullscreen();
+  // Mobile: Vollbildmodus aktivieren
+  if (isMobile()) enterMapFullscreen();
 
-    // Panzoom initialisieren (einmalig)
-    if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        maxScale: 4,
-        contain: 'outside',
-        animate: true
-      });
+  // Panzoom initialisieren (nur einmal)
+  if (!panzoomInstance) {
+    panzoomInstance = Panzoom(mapEl, {
+      maxScale: 4,
+      contain: 'outside',
+      animate: true
+    });
 
-      // Desktop: Wheel-Zoom (Scroll blocken)
-      wrapEl.addEventListener('wheel', (e)=>{
-        e.preventDefault();
-        panzoomInstance.zoomWithWheel(e);
-      }, { passive:false });
+    // Desktop: Zoom mit Mausrad (Scroll blocken)
+    wrapEl.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      panzoomInstance.zoomWithWheel(e);
+    }, { passive: false });
 
-      // Nach Init + evtl. Vollbild sicher zentrieren
-      nextFrame(fitAndCenter);
+    // Resize-Handling: bei Größenänderung neu einpassen, wenn nicht gezoomt
+    const ro = new ResizeObserver(() => {
+      const t = panzoomInstance.getTransform();
+      const min = panzoomInstance.getOptions().minScale ?? 0;
+      if (Math.abs(t.scale - min) < 0.03) fitAndCenter();
+    });
+    ro.observe(wrapEl);
+  }
 
-      // Bei Viewport-Änderungen ggf. neu einpassen
-      window.addEventListener('resize', () => {
-        const t = panzoomInstance.getTransform();
-        const min = panzoomInstance.getOptions().minScale ?? 0;
-        if (Math.abs(t.scale - min) < 0.02) fitAndCenter();
-      });
-
+  // Immer beim Öffnen der Karte zentrieren (auch wenn Panzoom schon da ist)
+  const mapImgEl = document.querySelector('.map-img');
+  if (mapImgEl) {
+    if (mapImgEl.complete) {
+      fitAndCenter();
     } else {
-      // Bereits initialisiert → nach Layoutwechsel neu zentrieren
-      nextFrame(fitAndCenter);
+      mapImgEl.addEventListener('load', fitAndCenter, { once: true });
     }
   }
+}
+
 
   /* ====== LISTE & DATEN ====== */
   const categories = [
@@ -339,4 +346,5 @@
 </script>
 </body>
 </html>
+
 
