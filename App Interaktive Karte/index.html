@@ -235,49 +235,51 @@
     else imgEl.addEventListener('load', cb, { once: true });
   }
 
-  function showMap(){
-    document.getElementById('tab-map').classList.add('active');
-    document.getElementById('tab-list').classList.remove('active');
-    wrapEl.classList.add('active');
-    document.getElementById('list').style.display = 'none';
+ function showMap() {
+  // Tabs umschalten
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-    if (isMobile()) {
-      enterMapFullscreen();
+  // Mobile: Vollbild aktivieren
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
+  }
+
+  const mapImgEl = document.querySelector('.map-img');
+
+  waitForImage(mapImgEl, () => {
+    const doFit = () => {
       setFullscreenVH();
       wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      enableVHWatchers();
-    }
+      const { scale, x, y } = computeFit(START_X_PERCENT);
 
-    const mapImgEl = document.querySelector('.map-img');
+      if (!panzoomInstance) {
+        panzoomInstance = Panzoom(mapEl, {
+          maxScale: 4,
+          contain: 'outside',
+          animate: true
+        });
 
-    waitForImage(mapImgEl, () => {
-      const doFit = () => {
-        setFullscreenVH();
-        wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-        const { scale, x, y } = computeFit(START_X_PERCENT);
+        wrapEl.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          panzoomInstance.zoomWithWheel(e);
+        }, { passive: false });
+      }
 
-        if (!panzoomInstance) {
-          panzoomInstance = Panzoom(mapEl, {
-            maxScale: 4,
-            contain: 'outside',
-            startScale: scale,
-            startX: x,
-            startY: y,
-            animate: true
-          });
-          wrapEl.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            panzoomInstance.zoomWithWheel(e);
-          }, { passive: false });
-        }
-        panzoomInstance.setOptions({ minScale: scale });
-        panzoomInstance.setTransform({ x, y, scale });
-      };
+      panzoomInstance.setOptions({ minScale: scale });
+      panzoomInstance.setTransform({ x, y, scale });
+    };
 
-      doFit();            // sofort
-      setTimeout(doFit, 150); // Sicherheits-fit
-    });
-  }
+    doFit();              // Sofort anpassen
+    setTimeout(doFit, 150); // Sicherheit
+  });
+}
+
 
   /* ====== LISTE & DATEN ====== */
   const categories = [
@@ -356,3 +358,4 @@
 </script>
 </body>
 </html>
+
