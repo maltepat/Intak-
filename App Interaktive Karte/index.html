@@ -267,29 +267,34 @@ function disableVHWatchers() {
     });
   }
 }
-
 function showMap(){
+  // Tabs / Sichtbarkeit umschalten
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
+  // Mobile: Vollbild aktivieren + Höhe fix setzen
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
-    // Höhe sofort direkt setzen – verhindert schwarzen Bereich
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
     enableVHWatchers();
   }
 
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    const doFit = () => {
-      setFullscreenVH();
-      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    requestAnimationFrame(() => {
+      const fitOnce = () => {
+        const { scale, x, y } = computeFit();
+        panzoomInstance.setOptions({ minScale: scale });
+        panzoomInstance.setTransform({ x, y, scale });
+      };
+
       const { scale, x, y } = computeFit();
+
       if (!panzoomInstance) {
+        // Panzoom initialisieren
         panzoomInstance = Panzoom(mapEl, {
           maxScale: 4,
           contain: 'outside',
@@ -298,19 +303,25 @@ function showMap(){
           startY: y,
           animate: true
         });
+
         wrapEl.addEventListener('wheel', (e) => {
           e.preventDefault();
           panzoomInstance.zoomWithWheel(e);
         }, { passive: false });
-      }
-      panzoomInstance.setOptions({ minScale: scale });
-      panzoomInstance.setTransform({ x, y, scale });
-    };
 
-    // Sofort fitten
-    doFit();
-    // Sicherheits-Fit 150ms später
-    setTimeout(doFit, 150);
+        const ro = new ResizeObserver(() => {
+          const t = panzoomInstance.getTransform();
+          const min = panzoomInstance.getOptions().minScale ?? scale;
+          if (Math.abs(t.scale - min) < 0.03) fitOnce();
+        });
+        ro.observe(wrapEl);
+      } else {
+        fitOnce();
+      }
+
+      // 💡 Doppel-Trigger für zuverlässige Zentrierung
+      setTimeout(fitOnce, 200);
+    });
   });
 }
 
@@ -406,6 +417,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
