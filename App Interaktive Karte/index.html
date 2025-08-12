@@ -274,11 +274,14 @@ function showMap(){
   document.getElementById('list').style.display = 'none';
 
   // Mobile: Vollbild aktivieren + sichtbare Höhe überwachen
-  if (isMobile()) enterMapFullscreen();
-  if (isMobile()) enableVHWatchers(); // setzt --vh und hält sie aktuell
+if (isMobile()) {
+  enterMapFullscreen();
+  setFullscreenVH(); // 🔹 Höhe sofort anpassen
+  enableVHWatchers();
+}
 
-  const mapEl = document.getElementById('map');
-  const mapImgEl = document.querySelector('.map-img');
+const mapEl = document.getElementById('map');
+const mapImgEl = document.querySelector('.map-img');
 
   // Warten bis das Bild geladen ist und das Layout steht
   waitForImage(mapImgEl, () => {
@@ -426,6 +429,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
