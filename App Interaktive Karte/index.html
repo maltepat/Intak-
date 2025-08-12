@@ -158,7 +158,8 @@
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
   // 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
-  const START_X_PERCENT = 0.5;
+let START_X_PERCENT = 0.5; // Horizontal
+let START_Y_PERCENT = 0.5; // Vertikal
 
   /* ====== DOM ====== */
   const wrapEl = document.getElementById('mapwrap');
@@ -201,20 +202,23 @@
   }
 
   /* ====== Fit-Funktionen ====== */
-  function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
-    const rect = wrapEl.getBoundingClientRect();
-    const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
-    const x = rect.width / 2 - (MAP_W * xPercent) * scale;           // gewünschter Kartenanteil mittig
-    const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
-    return { scale, x, y };
-  }
+function computeFit(xPercent = START_X_PERCENT, yPercent = START_Y_PERCENT) {
+  const rect = wrapEl.getBoundingClientRect();
+  const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
 
-  function fitAndCenter(xPercent = START_X_PERCENT) {
-    if (!panzoomInstance) return;
-    const { scale, x, y } = computeFit(xPercent);
-    panzoomInstance.setTransform({ x, y, scale });
-    panzoomInstance.setOptions({ minScale: scale });
-  }
+  // X- und Y-Startposition aus Prozent berechnen
+  const x = rect.width / 0.5 - (MAP_W * xPercent) * scale;
+  const y = rect.height / 0.6 - (MAP_H * yPercent) * scale;
+
+  return { scale, x, y };
+}
+
+function fitAndCenter(xPercent = START_X_PERCENT, yPercent = START_Y_PERCENT) {
+  if (!panzoomInstance) return;
+  const { scale, x, y } = computeFit(xPercent, yPercent);
+  panzoomInstance.setTransform({ x, y, scale });
+  panzoomInstance.setOptions({ minScale: scale });
+}
 
   /* ====== NAVIGATION ====== */
   function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
@@ -254,7 +258,8 @@ waitForImage(mapImgEl, () => {
   const doFit = () => {
     setFullscreenVH();
     wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-    const { scale, x, y } = computeFit(START_X_PERCENT);
+const { scale, x, y } = computeFit(START_X_PERCENT, START_Y_PERCENT);
+
 
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
@@ -355,4 +360,5 @@ waitForImage(mapImgEl, () => {
 </script>
 </body>
 </html>
+
 
