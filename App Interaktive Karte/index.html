@@ -291,7 +291,7 @@ function showMap(){
       const { scale, x, y } = computeFit();
 
       // 🔹 Offset in Pixeln – negativ = nach links, positiv = nach rechts
-      const xOffset = -0.5;
+      const xOffset = 0.5;
 
       if (!panzoomInstance) {
         panzoomInstance = Panzoom(mapEl, {
@@ -411,6 +411,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
