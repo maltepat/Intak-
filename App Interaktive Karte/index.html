@@ -257,22 +257,19 @@
         const { scale, x, y } = computeFit(START_X_PERCENT);
 
         if (!panzoomInstance) {
-          panzoomInstance = Panzoom(mapEl, {
-            maxScale: 4,
-            contain: 'outside',
-            startScale: scale,
-            startX: x,
-            startY: y,
-            animate: true
-          });
-          wrapEl.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            panzoomInstance.zoomWithWheel(e);
-          }, { passive: false });
-        }
-        panzoomInstance.setOptions({ minScale: scale });
-        panzoomInstance.setTransform({ x, y, scale });
-      };
+  panzoomInstance = Panzoom(mapEl, {
+    maxScale: 4,
+    contain: 'outside',
+    animate: true
+  });
+  wrapEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    panzoomInstance.zoomWithWheel(e);
+  }, { passive: false });
+}
+
+panzoomInstance.setOptions({ minScale: scale });
+panzoomInstance.setTransform({ x, y, scale });
 
       doFit();            // sofort
       setTimeout(doFit, 150); // Sicherheits-fit
@@ -356,3 +353,4 @@
 </script>
 </body>
 </html>
+
