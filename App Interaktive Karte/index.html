@@ -158,8 +158,8 @@
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
   // 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
-let START_X_PERCENT = 0.5; // Horizontal
-let START_Y_PERCENT = 0.5; // Vertikal
+let START_X_PERCENT = 1; // Horizontal
+let START_Y_PERCENT = 1; // Vertikal
 
   /* ====== DOM ====== */
   const wrapEl = document.getElementById('mapwrap');
@@ -207,7 +207,7 @@ function computeFit(xPercent = START_X_PERCENT, yPercent = START_Y_PERCENT) {
   const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
 
   // X- und Y-Startposition aus Prozent berechnen
-  const x = rect.width / 0.5 - (MAP_W * xPercent) * scale;
+  const x = rect.width / 0.8 - (MAP_W * xPercent) * scale;
   const y = rect.height / 0.6 - (MAP_H * yPercent) * scale;
 
   return { scale, x, y };
@@ -360,5 +360,6 @@ const { scale, x, y } = computeFit(START_X_PERCENT, START_Y_PERCENT);
 </script>
 </body>
 </html>
+
 
 
