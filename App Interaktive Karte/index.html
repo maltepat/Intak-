@@ -211,49 +211,79 @@
     if (isMobile()) exitMapFullscreen();
   }
 
+// 👇 Hilfsfunktionen (einmalig oben im Script platzieren)
+function computeFit() {
+  const wrap = document.getElementById('mapwrap');
+  const wrapW = wrap.clientWidth;
+  const wrapH = wrap.clientHeight;
+  const MAP_W = 1920, MAP_H = 1080;
+  const scale = Math.min(wrapW / MAP_W, wrapH / MAP_H);
+  const x = (wrapW - MAP_W * scale) / 2;
+  const y = (wrapH - MAP_H * scale) / 2;
+  return { scale, x, y };
+}
+function waitForImage(imgEl, cb) {
+  if (!imgEl) return;
+  if (imgEl.complete) cb();
+  else imgEl.addEventListener('load', cb, { once: true });
+}
+
+// 👇 showMap komplett ersetzen
 function showMap(){
-  // Tabs umschalten
+  // Tabs / Sichtbarkeit
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
+  const wrapEl = document.getElementById('mapwrap');
   wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
+  document.getElementById('list').style.display='none';
 
-  // Mobile: Vollbildmodus aktivieren
+  // Mobile: erst Vollbild aktivieren (ändert die Maße!)
   if (isMobile()) enterMapFullscreen();
 
-  // Panzoom initialisieren (nur einmal)
-  if (!panzoomInstance) {
-    panzoomInstance = Panzoom(mapEl, {
-      maxScale: 4,
-      contain: 'outside',
-      animate: true
-    });
-
-    // Desktop: Zoom mit Mausrad (Scroll blocken)
-    wrapEl.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      panzoomInstance.zoomWithWheel(e);
-    }, { passive: false });
-
-    // Resize-Handling: bei Größenänderung neu einpassen, wenn nicht gezoomt
-    const ro = new ResizeObserver(() => {
-      const t = panzoomInstance.getTransform();
-      const min = panzoomInstance.getOptions().minScale ?? 0;
-      if (Math.abs(t.scale - min) < 0.03) fitAndCenter();
-    });
-    ro.observe(wrapEl);
-  }
-
-  // Immer beim Öffnen der Karte zentrieren (auch wenn Panzoom schon da ist)
+  const mapEl = document.getElementById('map');
   const mapImgEl = document.querySelector('.map-img');
-  if (mapImgEl) {
-    if (mapImgEl.complete) {
-      fitAndCenter();
-    } else {
-      mapImgEl.addEventListener('load', fitAndCenter, { once: true });
-    }
-  }
+
+  // Warten bis Bild fertig + Layout steht → dann zentrieren
+  waitForImage(mapImgEl, () => {
+    requestAnimationFrame(() => {
+      const { scale, x, y } = computeFit();
+
+      if (!panzoomInstance) {
+        // 👉 Start-Transform direkt beim Init setzen
+        panzoomInstance = Panzoom(mapEl, {
+          maxScale: 4,
+          contain: 'outside',
+          startScale: scale,
+          startX: x,
+          startY: y,
+          animate: true
+        });
+
+        // Desktop: Wheel-Zoom (Scroll verhindern)
+        wrapEl.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          panzoomInstance.zoomWithWheel(e);
+        }, { passive:false });
+
+        // Bei Größenänderungen (Adressleiste, Rotate) neu einpassen, wenn nicht eingezoomt
+        const ro = new ResizeObserver(() => {
+          const t = panzoomInstance.getTransform();
+          if (Math.abs(t.scale - scale) < 0.03) {
+            const f = computeFit();
+            panzoomInstance.setOptions({ minScale: f.scale });
+            panzoomInstance.setTransform({ x: f.x, y: f.y, scale: f.scale });
+          }
+        });
+        ro.observe(wrapEl);
+      } else {
+        // Bereits initialisiert → jedes Öffnen sauber einpassen
+        panzoomInstance.setOptions({ minScale: scale });
+        panzoomInstance.setTransform({ x, y, scale });
+      }
+    });
+  });
 }
+
 
 
   /* ====== LISTE & DATEN ====== */
@@ -346,5 +376,6 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
