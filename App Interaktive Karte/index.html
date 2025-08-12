@@ -276,42 +276,62 @@ function showMap(){
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
-    // Höhe sofort direkt setzen – verhindert schwarzen Bereich
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
     enableVHWatchers();
   }
 
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    const doFit = () => {
-      setFullscreenVH();
-      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      const { scale, x, y } = computeFit();
+    requestAnimationFrame(() => {
+      const fitMiddleHorizontal = () => {
+        const fit = getFitScale();
+        const wrapW = wrapEl.clientWidth;
+        const wrapH = wrapEl.clientHeight;
+
+        // Mitte horizontal, vertikal wie gehabt
+        const x = (wrapW - MAP_W * fit) / 2;  
+        const y = (wrapH - MAP_H * fit) / 2;  
+
+        panzoomInstance.setOptions({ minScale: fit });
+        panzoomInstance.setTransform({ x, y, scale: fit });
+      };
+
       if (!panzoomInstance) {
+        const fit = getFitScale();
+        const wrapW = wrapEl.clientWidth;
+        const wrapH = wrapEl.clientHeight;
+        const startX = (wrapW - MAP_W * fit) / 2;
+        const startY = (wrapH - MAP_H * fit) / 2;
+
         panzoomInstance = Panzoom(mapEl, {
           maxScale: 4,
           contain: 'outside',
-          startScale: scale,
-          startX: x,
-          startY: y,
+          startScale: fit,
+          startX: startX,
+          startY: startY,
           animate: true
         });
+
         wrapEl.addEventListener('wheel', (e) => {
           e.preventDefault();
           panzoomInstance.zoomWithWheel(e);
         }, { passive: false });
-      }
-      panzoomInstance.setOptions({ minScale: scale });
-      panzoomInstance.setTransform({ x, y, scale });
-    };
 
-    // Sofort fitten
-    doFit();
-    // Sicherheits-Fit 150ms später
-    setTimeout(doFit, 150);
+        const ro = new ResizeObserver(() => {
+          const t = panzoomInstance.getTransform();
+          const min = panzoomInstance.getOptions().minScale ?? fit;
+          if (Math.abs(t.scale - min) < 0.03) fitMiddleHorizontal();
+        });
+        ro.observe(wrapEl);
+      } else {
+        fitMiddleHorizontal();
+      }
+
+      setTimeout(fitMiddleHorizontal, 200);
+    });
   });
 }
+
 
 
   /* ====== LISTE & DATEN ====== */
@@ -404,6 +424,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
