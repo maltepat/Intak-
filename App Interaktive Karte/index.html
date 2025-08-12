@@ -84,36 +84,38 @@
   .sheet .meta { margin-bottom:10px; }
   .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
 
-  /* Mobile: Vollbild-Karte */
-  @media (max-width: 768px) {
-    body.fullscreen-map .topbar,
-    body.fullscreen-map .tabs,
-    body.fullscreen-map .chips { display:none; }
-
+/* Mobile: Vollbild-Karte */
 @media (max-width: 768px) {
+  body.fullscreen-map .topbar,
+  body.fullscreen-map .tabs,
+  body.fullscreen-map .chips { display:none; }
+
+  body.fullscreen-map { overflow:hidden; }
+
   body.fullscreen-map .mapwrap {
     position: fixed;
     inset: 0;
     z-index: 9999;
     width: 100vw;
-    height: 100svh;   /* vorher: 100dvh → verursacht schwarzen Balken */
+    height: calc(var(--vh, 1vh) * 100); /* Höhe kommt aus JS */
     display: block !important;
     background: #000;
+    touch-action: none;
+    overscroll-behavior: contain;
   }
-}
 
-    .exit-fullscreen {
-      position:fixed;
-      z-index:10000;
-      right:12px; top:12px;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid #333;
-      background:rgba(255,255,255,0.9);
-      font-weight:600;
-    }
-    body:not(.fullscreen-map) .exit-fullscreen { display:none; }
+  .exit-fullscreen {
+    position: fixed;
+    z-index: 10000;
+    right: 12px; top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid #333;
+    background: rgba(255,255,255,.9);
+    font-weight: 600;
   }
+  body:not(.fullscreen-map) .exit-fullscreen { display:none; }
+}
 </style>
 </head>
 <body>
@@ -229,28 +231,66 @@ function waitForImage(imgEl, cb) {
   else imgEl.addEventListener('load', cb, { once: true });
 }
 
-// 👇 showMap komplett ersetzen
+  // Höhe des sichtbaren Bereichs setzen (verhindert schwarzen Balken)
+function setFullscreenVH() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  const vh = h * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+
+// Events aktivieren/deaktivieren für Vollbild
+function enableVHWatchers() {
+  setFullscreenVH();
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', onVVChange);
+    visualViewport.addEventListener('scroll', onVVChange);
+  }
+  window.addEventListener('orientationchange', onVVChange);
+}
+function disableVHWatchers() {
+  if (window.visualViewport) {
+    visualViewport.removeEventListener('resize', onVVChange);
+    visualViewport.removeEventListener('scroll', onVVChange);
+  }
+  window.removeEventListener('orientationchange', onVVChange);
+}
+function onVVChange() {
+  setFullscreenVH();
+  if (panzoomInstance) {
+    requestAnimationFrame(() => {
+      const t = panzoomInstance.getTransform();
+      const min = panzoomInstance.getOptions().minScale ?? 0;
+      if (Math.abs(t.scale - min) < 0.03) fitAndCenter();
+    });
+  }
+}
+
 function showMap(){
-  // Tabs / Sichtbarkeit
+  // Tabs / Sichtbarkeit umschalten
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   const wrapEl = document.getElementById('mapwrap');
   wrapEl.classList.add('active');
-  document.getElementById('list').style.display='none';
+  document.getElementById('list').style.display = 'none';
 
-  // Mobile: erst Vollbild aktivieren (ändert die Maße!)
+  // Mobile: Vollbild aktivieren + sichtbare Höhe überwachen
   if (isMobile()) enterMapFullscreen();
+  if (isMobile()) enableVHWatchers(); // setzt --vh und hält sie aktuell
 
   const mapEl = document.getElementById('map');
   const mapImgEl = document.querySelector('.map-img');
 
-  // Warten bis Bild fertig + Layout steht → dann zentrieren
+  // Warten bis das Bild geladen ist und das Layout steht
   waitForImage(mapImgEl, () => {
     requestAnimationFrame(() => {
-      const { scale, x, y } = computeFit();
+      // Höhe exakt setzen (verhindert schwarzen Balken)
+      setFullscreenVH();
+
+      // Fit für aktuellen sichtbaren Bereich berechnen
+      const { scale, x, y } = computeFit(); // nutzt getBoundingClientRect() in deiner computeFit()
 
       if (!panzoomInstance) {
-        // 👉 Start-Transform direkt beim Init setzen
+        // Panzoom einmalig initialisieren – Start-Transform direkt mitgeben
         panzoomInstance = Panzoom(mapEl, {
           maxScale: 4,
           contain: 'outside',
@@ -260,27 +300,36 @@ function showMap(){
           animate: true
         });
 
-        // Desktop: Wheel-Zoom (Scroll verhindern)
+        // Desktop: Wheel‑Zoom (Scroll verhindern)
         wrapEl.addEventListener('wheel', (e) => {
           e.preventDefault();
           panzoomInstance.zoomWithWheel(e);
-        }, { passive:false });
+        }, { passive: false });
 
-        // Bei Größenänderungen (Adressleiste, Rotate) neu einpassen, wenn nicht eingezoomt
+        // Bei echten Größenänderungen (Adressleiste/Rotate) erneut einpassen, wenn nicht eingezoomt
         const ro = new ResizeObserver(() => {
           const t = panzoomInstance.getTransform();
-          if (Math.abs(t.scale - scale) < 0.03) {
+          const min = panzoomInstance.getOptions().minScale ?? scale;
+          if (Math.abs(t.scale - min) < 0.03) {
             const f = computeFit();
             panzoomInstance.setOptions({ minScale: f.scale });
             panzoomInstance.setTransform({ x: f.x, y: f.y, scale: f.scale });
           }
         });
         ro.observe(wrapEl);
+
       } else {
         // Bereits initialisiert → jedes Öffnen sauber einpassen
         panzoomInstance.setOptions({ minScale: scale });
         panzoomInstance.setTransform({ x, y, scale });
       }
+
+      // Sicherheits‑Nachdreh: nach kurzer Zeit nochmal fitten (falls Browser die UI nachzieht)
+      setTimeout(() => {
+        const f2 = computeFit();
+        panzoomInstance.setOptions({ minScale: f2.scale });
+        panzoomInstance.setTransform({ x: f2.x, y: f2.y, scale: f2.scale });
+      }, 250);
     });
   });
 }
@@ -377,6 +426,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
