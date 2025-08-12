@@ -158,8 +158,7 @@
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
   // 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
-  const START_X_PERCENT = 1;
-
+  const START_X_PERCENT = 0.5;
 
   /* ====== DOM ====== */
   const wrapEl = document.getElementById('mapwrap');
@@ -230,66 +229,55 @@
     if (isMobile()) { exitMapFullscreen(); disableVHWatchers(); }
   }
 
- function computeCenterFit() {
-  const rect = wrapEl.getBoundingClientRect();
-  // Skaliere so, dass die Höhe exakt passt
-  const scale = rect.height / MAP_H;
-  // X so berechnen, dass die Kartenmitte in der Mitte des Bildschirms ist
-  const x = rect.width / 2 - (MAP_W / 2) * scale;
-  // Y mittig (oder oben, wenn du magst)
-  const y = (rect.height - MAP_H * scale) / 2;
-  return { scale, x, y };
-}
-
-function showMap(){
-  document.getElementById('tab-map').classList.add('active');
-  document.getElementById('tab-list').classList.remove('active');
-  wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
-
-  if (isMobile()) {
-    enterMapFullscreen();
-    setFullscreenVH();
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-    enableVHWatchers();
+  function waitForImage(imgEl, cb) {
+    if (!imgEl) return;
+    if (imgEl.complete) cb();
+    else imgEl.addEventListener('load', cb, { once: true });
   }
 
-  const mapImgEl = document.querySelector('.map-img');
+  function showMap(){
+    document.getElementById('tab-map').classList.add('active');
+    document.getElementById('tab-list').classList.remove('active');
+    wrapEl.classList.add('active');
+    document.getElementById('list').style.display = 'none';
 
-  waitForImage(mapImgEl, () => {
-    const doFit = () => {
+    if (isMobile()) {
+      enterMapFullscreen();
       setFullscreenVH();
       wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+      enableVHWatchers();
+    }
 
-      // 🔹 Neue Funktion nutzen, um direkt mittig zu starten
-      const { scale, x, y } = computeCenterFit();
+    const mapImgEl = document.querySelector('.map-img');
 
-      if (!panzoomInstance) {
-        panzoomInstance = Panzoom(mapEl, {
-          maxScale: 4,
-          contain: 'outside',
-          startScale: scale,
-          startX: x,
-          startY: y,
-          animate: true
-        });
+    waitForImage(mapImgEl, () => {
+      const doFit = () => {
+        setFullscreenVH();
+        wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+        const { scale, x, y } = computeFit(START_X_PERCENT);
 
-        wrapEl.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          panzoomInstance.zoomWithWheel(e);
-        }, { passive: false });
-      }
+        if (!panzoomInstance) {
+          panzoomInstance = Panzoom(mapEl, {
+            maxScale: 4,
+            contain: 'outside',
+            startScale: scale,
+            startX: x,
+            startY: y,
+            animate: true
+          });
+          wrapEl.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            panzoomInstance.zoomWithWheel(e);
+          }, { passive: false });
+        }
+        panzoomInstance.setOptions({ minScale: scale });
+        panzoomInstance.setTransform({ x, y, scale });
+      };
 
-      panzoomInstance.setOptions({ minScale: scale });
-      panzoomInstance.setTransform({ x, y, scale });
-    };
-
-    doFit();
-    setTimeout(doFit, 150);
-  });
-}
-
-
+      doFit();            // sofort
+      setTimeout(doFit, 150); // Sicherheits-fit
+    });
+  }
 
   /* ====== LISTE & DATEN ====== */
   const categories = [
@@ -368,7 +356,3 @@ function showMap(){
 </script>
 </body>
 </html>
-
-
-
-
