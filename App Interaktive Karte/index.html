@@ -41,19 +41,16 @@
     overflow:hidden;
     position:relative;
     background:#000;
-
-    /* wichtig für Phones */
     touch-action:none;
     overscroll-behavior: contain;
   }
   .mapwrap.active { display:block; }
 
-  /* feste Größe deiner Grafik */
   .map {
     position:relative;
     width:1920px;
     height:1080px;
-    touch-action:none;      /* Gesten an Panzoom durchreichen */
+    touch-action:none;
     will-change: transform;
   }
 
@@ -62,18 +59,13 @@
     inset:0;
     width:100%;
     height:100%;
-    object-fit:fill;        /* 1920x1080 passt exakt in .map */
+    object-fit:fill;
     display:block;
     user-select:none;
-    pointer-events:none;    /* Bild fängt keine Touches ab */
+    pointer-events:none;
   }
 
-  .pin {
-    position:absolute;
-    width:64px; height:64px;
-    transform:translate(-50%,-50%);
-    cursor:pointer;
-  }
+  .pin { position:absolute; width:64px; height:64px; transform:translate(-50%,-50%); cursor:pointer; }
   .pin img { width:100%; height:100%; }
 
   /* Bottom Sheet */
@@ -84,38 +76,38 @@
   .sheet .meta { margin-bottom:10px; }
   .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
 
-/* Mobile: Vollbild-Karte */
-@media (max-width: 768px) {
-  body.fullscreen-map .topbar,
-  body.fullscreen-map .tabs,
-  body.fullscreen-map .chips { display:none; }
+  /* Mobile: Vollbild-Karte */
+  @media (max-width: 768px) {
+    body.fullscreen-map .topbar,
+    body.fullscreen-map .tabs,
+    body.fullscreen-map .chips { display:none; }
 
-  body.fullscreen-map { overflow:hidden; }
+    body.fullscreen-map { overflow:hidden; }
 
-  body.fullscreen-map .mapwrap {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    width: 100vw;
-    height: calc(var(--vh, 1vh) * 100); /* Höhe kommt aus JS */
-    display: block !important;
-    background: #000;
-    touch-action: none;
-    overscroll-behavior: contain;
+    body.fullscreen-map .mapwrap {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      width: 100vw;
+      height: calc(var(--vh, 1vh) * 100); /* kommt aus JS */
+      display: block !important;
+      background: #000;
+      touch-action: none;
+      overscroll-behavior: contain;
+    }
+
+    .exit-fullscreen {
+      position: fixed;
+      z-index: 10000;
+      right: 12px; top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      background: rgba(255,255,255,.9);
+      font-weight: 600;
+    }
+    body:not(.fullscreen-map) .exit-fullscreen { display:none; }
   }
-
-  .exit-fullscreen {
-    position: fixed;
-    z-index: 10000;
-    right: 12px; top: 12px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    border: 1px solid #333;
-    background: rgba(255,255,255,.9);
-    font-weight: 600;
-  }
-  body:not(.fullscreen-map) .exit-fullscreen { display:none; }
-}
 </style>
 </head>
 <body>
@@ -140,14 +132,8 @@
   <div class="mapwrap" id="mapwrap">
     <div class="map" id="map">
       <img src="bilder/TXL Lageplan LAF-vektorisiert_013_HD(1).png" alt="Karte" class="map-img" draggable="false" />
-
-      <!-- Beispiel-Pins -->
-      <div class="pin" id="pin-P5" style="top:58%; left:33%;">
-        <img src="icons/P5Icon.png" alt="P5"/>
-      </div>
-      <div class="pin" id="pin-Kruemelecke" style="top:45%; left:60%;">
-        <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
-      </div>
+      <div class="pin" id="pin-P5" style="top:58%; left:33%;"><img src="icons/P5Icon.png" alt="P5"/></div>
+      <div class="pin" id="pin-Kruemelecke" style="top:45%; left:60%;"><img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/></div>
     </div>
   </div>
 
@@ -164,162 +150,134 @@
 <script src="translations.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
 <script>
-  /* ====== STATE & HELPERS ====== */
+  /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
   let panzoomInstance = null;
 
   const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
-  function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
-  function setLang(l){ currentLang=l; render(); }
+  // 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
+  const START_X_PERCENT = 0.5;
 
-  // DOM refs
+  /* ====== DOM ====== */
   const wrapEl = document.getElementById('mapwrap');
   const mapEl  = document.getElementById('map');
 
-  // Fit-Scale für den aktuellen Viewport
-  function getFitScale() {
-    const wrapW = wrapEl.clientWidth;
-    const wrapH = wrapEl.clientHeight;
-    return Math.min(wrapW / MAP_W, wrapH / MAP_H);
+  function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
+  function setLang(l){ currentLang=l; render(); }
+
+  /* ====== Viewport-Helfer ====== */
+  function setFullscreenVH() {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
+  }
+  function enableVHWatchers() {
+    setFullscreenVH();
+    if (window.visualViewport) {
+      visualViewport.addEventListener('resize', onVVChange);
+      visualViewport.addEventListener('scroll', onVVChange);
+    }
+    window.addEventListener('orientationchange', onVVChange);
+  }
+  function disableVHWatchers() {
+    if (window.visualViewport) {
+      visualViewport.removeEventListener('resize', onVVChange);
+      visualViewport.removeEventListener('scroll', onVVChange);
+    }
+    window.removeEventListener('orientationchange', onVVChange);
+  }
+  function onVVChange() {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    wrapEl.style.height = h + 'px';
+    setFullscreenVH();
+    if (panzoomInstance) {
+      requestAnimationFrame(() => {
+        const t = panzoomInstance.getTransform();
+        const min = panzoomInstance.getOptions().minScale ?? 0;
+        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
+      });
+    }
   }
 
-  // Karte einpassen & zentrieren (nur wenn Panzoom existiert)
-  function fitAndCenter() {
+  /* ====== Fit-Funktionen ====== */
+  function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
+    const rect = wrapEl.getBoundingClientRect();
+    const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
+    const x = rect.width / 2 - (MAP_W * xPercent) * scale;           // gewünschter Kartenanteil mittig
+    const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
+    return { scale, x, y };
+  }
+
+  function fitAndCenter(xPercent = START_X_PERCENT) {
     if (!panzoomInstance) return;
-    const fit = getFitScale();
-    const wrapW = wrapEl.clientWidth, wrapH = wrapEl.clientHeight;
-    const x = (wrapW - MAP_W * fit) / 2;
-    const y = (wrapH - MAP_H * fit) / 2;
-    panzoomInstance.setTransform({ x, y, scale: fit });
-    panzoomInstance.setOptions({ minScale: fit });  // nicht weiter rauszoomen
+    const { scale, x, y } = computeFit(xPercent);
+    panzoomInstance.setTransform({ x, y, scale });
+    panzoomInstance.setOptions({ minScale: scale });
   }
-
-  // Zwei Frames warten, bis Layout/Fixes greifen
-  const nextFrame = (cb) => requestAnimationFrame(()=>requestAnimationFrame(cb));
 
   /* ====== NAVIGATION ====== */
   function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
   function exitMapFullscreen(){ document.body.classList.remove('fullscreen-map'); }
-  document.getElementById('exitFsBtn')?.addEventListener('click', () => {
-    showList();
-  });
+  document.getElementById('exitFsBtn')?.addEventListener('click', () => showList());
 
   function showList(){
     document.getElementById('tab-list').classList.add('active');
     document.getElementById('tab-map').classList.remove('active');
     wrapEl.classList.remove('active');
     document.getElementById('list').style.display='grid';
-    if (isMobile()) exitMapFullscreen();
+    if (isMobile()) { exitMapFullscreen(); disableVHWatchers(); }
   }
 
-// 👇 Hilfsfunktionen (einmalig oben im Script platzieren)
-function computeFit() {
-  const wrap = document.getElementById('mapwrap');
-  const wrapW = wrap.clientWidth;
-  const wrapH = wrap.clientHeight;
-  const MAP_W = 1920, MAP_H = 1080;
-  const scale = Math.min(wrapW / MAP_W, wrapH / MAP_H);
-  const x = (wrapW - MAP_W * scale) / 2;
-  const y = (wrapH - MAP_H * scale) / 2;
-  return { scale, x, y };
-}
-function waitForImage(imgEl, cb) {
-  if (!imgEl) return;
-  if (imgEl.complete) cb();
-  else imgEl.addEventListener('load', cb, { once: true });
-}
-
-  // Höhe des sichtbaren Bereichs setzen (verhindert schwarzen Balken)
-function setFullscreenVH() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  const vh = h * 0.01;
-  document.documentElement.style.setProperty('--vh', `${vh}px`);
-}
-
-// Events aktivieren/deaktivieren für Vollbild
-function enableVHWatchers() {
-  setFullscreenVH();
-  if (window.visualViewport) {
-    visualViewport.addEventListener('resize', onVVChange);
-    visualViewport.addEventListener('scroll', onVVChange);
-  }
-  window.addEventListener('orientationchange', onVVChange);
-}
-function disableVHWatchers() {
-  if (window.visualViewport) {
-    visualViewport.removeEventListener('resize', onVVChange);
-    visualViewport.removeEventListener('scroll', onVVChange);
-  }
-  window.removeEventListener('orientationchange', onVVChange);
-}
-
-  function onVVChange() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  wrapEl.style.height = h + 'px'; // Container-Höhe neu setzen
-  setFullscreenVH();
-  if (panzoomInstance) {
-    requestAnimationFrame(() => {
-      const t = panzoomInstance.getTransform();
-      const min = panzoomInstance.getOptions().minScale ?? 0;
-      if (Math.abs(t.scale - min) < 0.03) fitAndCenter();
-    });
-  }
-}
-  
-function showMap(){
-  document.getElementById('tab-map').classList.add('active');
-  document.getElementById('tab-list').classList.remove('active');
-  wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
-
-  if (isMobile()) {
-    enterMapFullscreen();
-    setFullscreenVH();
-    // Höhe sofort direkt setzen – verhindert schwarzen Bereich
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-    enableVHWatchers();
+  function waitForImage(imgEl, cb) {
+    if (!imgEl) return;
+    if (imgEl.complete) cb();
+    else imgEl.addEventListener('load', cb, { once: true });
   }
 
-  const mapImgEl = document.querySelector('.map-img');
+  function showMap(){
+    document.getElementById('tab-map').classList.add('active');
+    document.getElementById('tab-list').classList.remove('active');
+    wrapEl.classList.add('active');
+    document.getElementById('list').style.display = 'none';
 
-  waitForImage(mapImgEl, () => {
-    const doFit = () => {
+    if (isMobile()) {
+      enterMapFullscreen();
       setFullscreenVH();
       wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      const { scale, x, y } = computeFit();
+      enableVHWatchers();
+    }
 
-      // 🔹 Offset in Pixeln – negativ = nach links, positiv = nach rechts
-      const xOffset = 0.5;
+    const mapImgEl = document.querySelector('.map-img');
 
-      if (!panzoomInstance) {
-        panzoomInstance = Panzoom(mapEl, {
-          maxScale: 4,
-          contain: 'outside',
-          startScale: scale,
-          startX: x + xOffset,
-          startY: y,
-          animate: true
-        });
-        wrapEl.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          panzoomInstance.zoomWithWheel(e);
-        }, { passive: false });
-      }
-      panzoomInstance.setOptions({ minScale: scale });
-      panzoomInstance.setTransform({ x: x + xOffset, y, scale });
-    };
+    waitForImage(mapImgEl, () => {
+      const doFit = () => {
+        setFullscreenVH();
+        wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+        const { scale, x, y } = computeFit(START_X_PERCENT);
 
-    // Sofort fitten
-    doFit();
-    // Sicherheits-Fit 150ms später
-    setTimeout(doFit, 150);
-  });
-}
+        if (!panzoomInstance) {
+          panzoomInstance = Panzoom(mapEl, {
+            maxScale: 4,
+            contain: 'outside',
+            startScale: scale,
+            startX: x,
+            startY: y,
+            animate: true
+          });
+          wrapEl.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            panzoomInstance.zoomWithWheel(e);
+          }, { passive: false });
+        }
+        panzoomInstance.setOptions({ minScale: scale });
+        panzoomInstance.setTransform({ x, y, scale });
+      };
 
-
-
+      doFit();            // sofort
+      setTimeout(doFit, 150); // Sicherheits-fit
+    });
+  }
 
   /* ====== LISTE & DATEN ====== */
   const categories = [
@@ -329,7 +287,6 @@ function showMap(){
   ];
 
   function render(){
-    // Chips
     const chips = document.getElementById('chips'); chips.innerHTML='';
     categories.forEach(c=>{
       const el=document.createElement('button');
@@ -381,23 +338,12 @@ function showMap(){
   function focusPin(id, targetScale = 2) {
     const pinEl = document.getElementById(`pin-${id}`);
     if (!pinEl || !panzoomInstance) return;
-
-    // 1) Sicherstellen, dass Basis-Einpassung aktiv ist (falls gerade frisch geöffnet)
-    fitAndCenter();
-
+    fitAndCenter(START_X_PERCENT);
     const wrapRect = wrapEl.getBoundingClientRect();
     const pinRect  = pinEl.getBoundingClientRect();
-
     const pinCenterX = pinRect.left + pinRect.width/2 - wrapRect.left;
     const pinCenterY = pinRect.top  + pinRect.height/2 - wrapRect.top;
-
-    // 2) Um den Pin herum zoomen
-    panzoomInstance.zoomToPoint(targetScale, {
-      clientX: wrapRect.left + pinCenterX,
-      clientY: wrapRect.top  + pinCenterY
-    });
-
-    // 3) Dann sanft in die Mitte schieben
+    panzoomInstance.zoomToPoint(targetScale, { clientX: wrapRect.left + pinCenterX, clientY: wrapRect.top + pinCenterY });
     const t = panzoomInstance.getTransform();
     const dx = (wrapRect.width/2  - pinCenterX) * (1 / t.scale);
     const dy = (wrapRect.height/2 - pinCenterY) * (1 / t.scale);
@@ -406,31 +352,7 @@ function showMap(){
 
   /* ====== Start ====== */
   render();
-  // Optional: Mobile startet gleich mit Karte
-  if (isMobile()) showList();
+  showList(); // immer mit Liste starten
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
