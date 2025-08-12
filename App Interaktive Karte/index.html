@@ -254,7 +254,10 @@ function disableVHWatchers() {
   }
   window.removeEventListener('orientationchange', onVVChange);
 }
-function onVVChange() {
+
+  function onVVChange() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  wrapEl.style.height = h + 'px'; // Container-Höhe neu setzen
   setFullscreenVH();
   if (panzoomInstance) {
     requestAnimationFrame(() => {
@@ -273,27 +276,34 @@ function showMap(){
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobile: Vollbild aktivieren + sichtbare Höhe überwachen
-if (isMobile()) {
-  enterMapFullscreen();
-  setFullscreenVH(); // 🔹 Höhe sofort anpassen
-  enableVHWatchers();
-}
+  // Mobile: Vollbild aktivieren + Höhe sofort setzen + überwachen
+  if (isMobile()) {
+    enterMapFullscreen();
 
-const mapEl = document.getElementById('map');
-const mapImgEl = document.querySelector('.map-img');
+    // Höhe sofort in Pixeln setzen (verhindert schwarzen Rand)
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    wrapEl.style.height = h + 'px';
+
+    enableVHWatchers();
+  }
+
+  const mapEl = document.getElementById('map');
+  const mapImgEl = document.querySelector('.map-img');
 
   // Warten bis das Bild geladen ist und das Layout steht
   waitForImage(mapImgEl, () => {
     requestAnimationFrame(() => {
-      // Höhe exakt setzen (verhindert schwarzen Balken)
-      setFullscreenVH();
+      // Höhe nochmal setzen, falls sich Viewport geändert hat
+      if (isMobile()) {
+        const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        wrapEl.style.height = h + 'px';
+      }
 
       // Fit für aktuellen sichtbaren Bereich berechnen
-      const { scale, x, y } = computeFit(); // nutzt getBoundingClientRect() in deiner computeFit()
+      const { scale, x, y } = computeFit();
 
       if (!panzoomInstance) {
-        // Panzoom einmalig initialisieren – Start-Transform direkt mitgeben
+        // Panzoom einmalig initialisieren
         panzoomInstance = Panzoom(mapEl, {
           maxScale: 4,
           contain: 'outside',
@@ -303,13 +313,13 @@ const mapImgEl = document.querySelector('.map-img');
           animate: true
         });
 
-        // Desktop: Wheel‑Zoom (Scroll verhindern)
+        // Desktop: Wheel-Zoom
         wrapEl.addEventListener('wheel', (e) => {
           e.preventDefault();
           panzoomInstance.zoomWithWheel(e);
         }, { passive: false });
 
-        // Bei echten Größenänderungen (Adressleiste/Rotate) erneut einpassen, wenn nicht eingezoomt
+        // Bei Größenänderungen erneut einpassen, wenn nicht eingezoomt
         const ro = new ResizeObserver(() => {
           const t = panzoomInstance.getTransform();
           const min = panzoomInstance.getOptions().minScale ?? scale;
@@ -322,12 +332,12 @@ const mapImgEl = document.querySelector('.map-img');
         ro.observe(wrapEl);
 
       } else {
-        // Bereits initialisiert → jedes Öffnen sauber einpassen
+        // Bereits initialisiert → beim Öffnen anpassen
         panzoomInstance.setOptions({ minScale: scale });
         panzoomInstance.setTransform({ x, y, scale });
       }
 
-      // Sicherheits‑Nachdreh: nach kurzer Zeit nochmal fitten (falls Browser die UI nachzieht)
+      // Sicherheits-Nachdreh
       setTimeout(() => {
         const f2 = computeFit();
         panzoomInstance.setOptions({ minScale: f2.scale });
@@ -336,7 +346,6 @@ const mapImgEl = document.querySelector('.map-img');
     });
   });
 }
-
 
 
   /* ====== LISTE & DATEN ====== */
@@ -429,6 +438,7 @@ const mapImgEl = document.querySelector('.map-img');
 </script>
 </body>
 </html>
+
 
 
 
