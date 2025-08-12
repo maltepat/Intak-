@@ -90,16 +90,17 @@
     body.fullscreen-map .tabs,
     body.fullscreen-map .chips { display:none; }
 
-    body.fullscreen-map .mapwrap {
-      position:fixed;
-      inset:0;
-      z-index:9999;
-      width:100vw;
-      height:100dvh;     /* stabiler auf iOS */
-      display:block !important;
-      background:#000;
-    }
-    body.fullscreen-map { overflow:hidden; }
+@media (max-width: 768px) {
+  body.fullscreen-map .mapwrap {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    width: 100vw;
+    height: 100svh;   /* vorher: 100dvh → verursacht schwarzen Balken */
+    display: block !important;
+    background: #000;
+  }
+}
 
     .exit-fullscreen {
       position:fixed;
@@ -376,6 +377,7 @@ function showMap(){
 </script>
 </body>
 </html>
+
 
 
 
