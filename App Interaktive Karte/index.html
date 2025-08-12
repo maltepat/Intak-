@@ -34,42 +34,43 @@
   .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
   .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
 
-  /* Karte (interaktiv) – Desktop-Größe unter dem Header */
-  .mapwrap { 
-    display:none; 
-    height:calc(100vh - 112px); 
+  /* Karte */
+  .mapwrap {
+    display:none;
+    height:calc(100vh - 112px);
     overflow:hidden;
     position:relative;
     background:#000;
+
+    /* wichtig für Phones */
+    touch-action:none;
+    overscroll-behavior: contain;
   }
   .mapwrap.active { display:block; }
 
-  /* DIE KARTE SELBST: feste Pixelgröße deiner Grafik (1920x1080) */
+  /* feste Größe deiner Grafik */
   .map {
     position:relative;
     width:1920px;
     height:1080px;
-    touch-action:none;            /* wichtig für Pan/Pinch */
+    touch-action:none;      /* Gesten an Panzoom durchreichen */
     will-change: transform;
   }
 
-  /* Das Bild füllt die .map exakt aus */
   .map-img {
     position:absolute;
     inset:0;
     width:100%;
     height:100%;
-    object-fit:cover;             /* hier cover == exakt, weil Seitenverhältnis identisch */
+    object-fit:fill;        /* 1920x1080 passt exakt in .map */
     display:block;
     user-select:none;
-    pointer-events:none;          /* Bild selbst soll keine Events schlucken */
+    pointer-events:none;    /* Bild fängt keine Touches ab */
   }
 
-  /* Pins sind Kinder von .map, werden mit transform mitbewegt */
   .pin {
     position:absolute;
-    width:64px;
-    height:64px;
+    width:64px; height:64px;
     transform:translate(-50%,-50%);
     cursor:pointer;
   }
@@ -83,7 +84,7 @@
   .sheet .meta { margin-bottom:10px; }
   .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
 
-  /* Mobile: Vollbild-Karte (Header/Tabs ausblenden, Map fixed) */
+  /* Mobile: Vollbild-Karte */
   @media (max-width: 768px) {
     body.fullscreen-map .topbar,
     body.fullscreen-map .tabs,
@@ -94,19 +95,16 @@
       inset:0;
       z-index:9999;
       width:100vw;
-      height:100dvh; /* stabiler als 100vh */
+      height:100dvh;     /* stabiler auf iOS */
+      display:block !important;
       background:#000;
-      display:block !important; /* sicherstellen, dass sie sichtbar ist */
     }
-
     body.fullscreen-map { overflow:hidden; }
 
-    /* Floating-Button zum Verlassen (optional) */
     .exit-fullscreen {
       position:fixed;
       z-index:10000;
-      right:12px;
-      top:12px;
+      right:12px; top:12px;
       padding:10px 12px;
       border-radius:12px;
       border:1px solid #333;
@@ -134,33 +132,22 @@
 
   <div class="chips" id="chips"></div>
 
-  <div class="list" id="list">
-    <!-- JS rendert Cards hier hinein -->
-  </div>
+  <div class="list" id="list"></div>
   
   <div class="mapwrap" id="mapwrap">
     <div class="map" id="map">
-      <!-- Die 1920x1080-Karte -->
-      <img
-        src="bilder/TXL Lageplan LAF-vektorisiert_013_HD(1).png"
-        alt="Karte"
-        class="map-img"
-        draggable="false"
-      />
+      <img src="bilder/TXL Lageplan LAF-vektorisiert_013_HD(1).png" alt="Karte" class="map-img" draggable="false" />
 
-      <!-- Beispiel-Pin (IDs ergänzt!) -->
+      <!-- Beispiel-Pins -->
       <div class="pin" id="pin-P5" style="top:58%; left:33%;">
         <img src="icons/P5Icon.png" alt="P5"/>
       </div>
-
-      <!-- 🔵 Krümelecke-Pin -->
       <div class="pin" id="pin-Kruemelecke" style="top:45%; left:60%;">
         <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
       </div>
     </div>
   </div>
 
-  <!-- Mobile: Button zum Verlassen des Vollbilds -->
   <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
 
   <div class="sheet" id="sheet">
@@ -174,28 +161,52 @@
 <script src="translations.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
 <script>
+  /* ====== STATE & HELPERS ====== */
   let currentLang = 'de';
-  let panzoomInstance;
+  let panzoomInstance = null;
 
-  const categories = [
-    { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'}, areas:['P5','Sandburg','Kruemelecke','Q1','Q'] },
-    { id:'health', label:{de:'Medizin', en:'Medical'}, areas:['Med'] },
-    { id:'services', label:{de:'Service', en:'Services'}, areas:['Post','Kleiderkammer','Infopoint'] }
-  ];
+  const MAP_W = 1920, MAP_H = 1080;
+  const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
-  function tLabel(cat){ return cat.label[currentLang] || cat.label.de; }
+  function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
   function setLang(l){ currentLang=l; render(); }
 
-  // Mobile-Vollbild umschalten
-  const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
-  function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); fitAndCenter(); }
-  function exitMapFullscreen(){ document.body.classList.remove('fullscreen-map'); fitAndCenter(); }
-  document.getElementById('exitFsBtn')?.addEventListener('click', exitMapFullscreen);
+  // DOM refs
+  const wrapEl = document.getElementById('mapwrap');
+  const mapEl  = document.getElementById('map');
+
+  // Fit-Scale für den aktuellen Viewport
+  function getFitScale() {
+    const wrapW = wrapEl.clientWidth;
+    const wrapH = wrapEl.clientHeight;
+    return Math.min(wrapW / MAP_W, wrapH / MAP_H);
+  }
+
+  // Karte einpassen & zentrieren (nur wenn Panzoom existiert)
+  function fitAndCenter() {
+    if (!panzoomInstance) return;
+    const fit = getFitScale();
+    const wrapW = wrapEl.clientWidth, wrapH = wrapEl.clientHeight;
+    const x = (wrapW - MAP_W * fit) / 2;
+    const y = (wrapH - MAP_H * fit) / 2;
+    panzoomInstance.setTransform({ x, y, scale: fit });
+    panzoomInstance.setOptions({ minScale: fit });  // nicht weiter rauszoomen
+  }
+
+  // Zwei Frames warten, bis Layout/Fixes greifen
+  const nextFrame = (cb) => requestAnimationFrame(()=>requestAnimationFrame(cb));
+
+  /* ====== NAVIGATION ====== */
+  function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
+  function exitMapFullscreen(){ document.body.classList.remove('fullscreen-map'); }
+  document.getElementById('exitFsBtn')?.addEventListener('click', () => {
+    showList();
+  });
 
   function showList(){
     document.getElementById('tab-list').classList.add('active');
     document.getElementById('tab-map').classList.remove('active');
-    document.getElementById('mapwrap').classList.remove('active');
+    wrapEl.classList.remove('active');
     document.getElementById('list').style.display='grid';
     if (isMobile()) exitMapFullscreen();
   }
@@ -203,65 +214,50 @@
   function showMap(){
     document.getElementById('tab-map').classList.add('active');
     document.getElementById('tab-list').classList.remove('active');
-    document.getElementById('mapwrap').classList.add('active');
+    wrapEl.classList.add('active');
     document.getElementById('list').style.display='none';
+
     if (isMobile()) enterMapFullscreen();
 
+    // Panzoom initialisieren (einmalig)
     if (!panzoomInstance) {
-      const mapElement = document.getElementById('map');
-      const MAP_W = 1920, MAP_H = 1080;
-
-      panzoomInstance = Panzoom(mapElement, {
+      panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
         contain: 'outside',
         animate: true
       });
 
-      // Desktop: Mousewheel-Zoom, Scroll verhindern
-      mapElement.parentElement.addEventListener('wheel', function(e){
+      // Desktop: Wheel-Zoom (Scroll blocken)
+      wrapEl.addEventListener('wheel', (e)=>{
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive:false });
 
-      // beim ersten Öffnen passend einpassen
-      fitAndCenter();
+      // Nach Init + evtl. Vollbild sicher zentrieren
+      nextFrame(fitAndCenter);
 
-      // Viewport-Änderung (Mobile Browser UI) -> nur neu einpassen, wenn auf Startmaß
+      // Bei Viewport-Änderungen ggf. neu einpassen
       window.addEventListener('resize', () => {
         const t = panzoomInstance.getTransform();
         const min = panzoomInstance.getOptions().minScale ?? 0;
         if (Math.abs(t.scale - min) < 0.02) fitAndCenter();
       });
 
-      // Hilfsfunktion: Karte passend einpassen & zentrieren
-      function getFitScale() {
-        const wrap = document.getElementById('mapwrap');
-        const wrapW = wrap.clientWidth;
-        const wrapH = wrap.clientHeight;
-        return Math.min(wrapW / MAP_W, wrapH / MAP_H);
-      }
-
-      function fitAndCenter() {
-        const wrap = document.getElementById('mapwrap');
-        if (!wrap || !panzoomInstance) return;
-        const fitScale = getFitScale();
-        const wrapW = wrap.clientWidth, wrapH = wrap.clientHeight;
-        const x = (wrapW - MAP_W * fitScale) / 2;
-        const y = (wrapH - MAP_H * fitScale) / 2;
-        panzoomInstance.setTransform({ x, y, scale: fitScale });
-        panzoomInstance.setOptions({ minScale: fitScale }); // nicht weiter rauszoomen als Einpassung
-      }
-
-      // fitAndCenter überall verfügbar machen
-      window.fitAndCenter = fitAndCenter;
     } else {
-      // falls Panzoom schon existiert: bei (Wieder)Öffnen ggf. einpassen
-      fitAndCenter();
+      // Bereits initialisiert → nach Layoutwechsel neu zentrieren
+      nextFrame(fitAndCenter);
     }
   }
 
-  // Chips & Liste rendern
+  /* ====== LISTE & DATEN ====== */
+  const categories = [
+    { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'}, areas:['P5','Sandburg','Kruemelecke','Q1','Q'] },
+    { id:'health', label:{de:'Medizin', en:'Medical'}, areas:['MP','Med'] },
+    { id:'services', label:{de:'Service', en:'Services'}, areas:['Post','Kleiderkammer','Infopoint'] }
+  ];
+
   function render(){
+    // Chips
     const chips = document.getElementById('chips'); chips.innerHTML='';
     categories.forEach(c=>{
       const el=document.createElement('button');
@@ -269,7 +265,7 @@
       el.onclick=()=>renderList(c.areas);
       chips.appendChild(el);
     });
-    renderList(categories.flatMap(c=>c.areas)); // Default: alles
+    renderList(categories.flatMap(c=>c.areas));
   }
 
   function renderList(areaIds){
@@ -309,39 +305,37 @@
   }
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
-  // --- Fokus auf einen Pin: zoomt dahin & zentriert ihn ---
+  /* ====== Pin-Fokus ====== */
   function focusPin(id, targetScale = 2) {
-    // Wir erwarten IDs wie "pin-P5", "pin-Kruemelecke"
     const pinEl = document.getElementById(`pin-${id}`);
     if (!pinEl || !panzoomInstance) return;
 
-    const wrap = document.getElementById('mapwrap');
-    const wrapRect = wrap.getBoundingClientRect();
+    // 1) Sicherstellen, dass Basis-Einpassung aktiv ist (falls gerade frisch geöffnet)
+    fitAndCenter();
+
+    const wrapRect = wrapEl.getBoundingClientRect();
     const pinRect  = pinEl.getBoundingClientRect();
 
-    // Pin-Mitte relativ zum Mapwrap
     const pinCenterX = pinRect.left + pinRect.width/2 - wrapRect.left;
     const pinCenterY = pinRect.top  + pinRect.height/2 - wrapRect.top;
 
-    // 1) Erst um den Pin herum zoomen
+    // 2) Um den Pin herum zoomen
     panzoomInstance.zoomToPoint(targetScale, {
       clientX: wrapRect.left + pinCenterX,
       clientY: wrapRect.top  + pinCenterY
     });
 
-    // 2) Dann leicht verschieben, damit der Pin exakt ins Zentrum kommt
+    // 3) Dann sanft in die Mitte schieben
     const t = panzoomInstance.getTransform();
     const dx = (wrapRect.width/2  - pinCenterX) * (1 / t.scale);
     const dy = (wrapRect.height/2 - pinCenterY) * (1 / t.scale);
     panzoomInstance.pan(t.x + dx, t.y + dy);
   }
 
-  // Beim ersten Laden alles aufbauen
+  /* ====== Start ====== */
   render();
-
-  // Optional: Wenn du möchtest, dass Mobile direkt mit Karte startet:
-  if (isMobile()) { showMap(); }
+  // Optional: Mobile startet gleich mit Karte
+  if (isMobile()) showMap();
 </script>
 </body>
 </html>
-
