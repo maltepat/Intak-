@@ -313,48 +313,41 @@ function showMap(focusId = null){
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    const fit = computeFit(0.5, 'center');
+    // Basis-Fit bestimmen (für minScale)
+    const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
-    // 1) Panzoom init (falls nötig) – immer mit Fit starten
+    // Ziel bestimmen (falls übergeben/gesetzt)
+    const id = focusId || lastFocusId || null;
+    const targetScale = Math.max(2, minScale);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+
     if (!panzoomInstance) {
+      // Panzoom direkt mit der richtigen Start-Transform initialisieren
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
         contain: 'outside',
-        startScale: fit.scale,
-        startX:    fit.x,
-        startY:    fit.y,
+        startScale: targetTf ? targetTf.scale : fit.scale,
+        startX:    targetTf ? targetTf.x     : fit.x,
+        startY:    targetTf ? targetTf.y     : fit.y,
         animate: true
       });
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
-    }
-
-    // minScale ggf. aktualisieren
-    panzoomInstance.setOptions({ minScale });
-
-    // 2) NACH der Init (oder auch wenn schon init) explizit springen
-    const id = focusId || lastFocusId || null;
-    if (id) {
-      const targetScale = Math.max(2, minScale);
-      const tf = computeTransformForPin(id, targetScale);
-      if (tf) {
-        panzoomInstance.setTransform(tf);   // <- der entscheidende Schritt
-        highlightPin?.(id);
-      } else {
-        // Fallback: wenn id nicht gefunden wurde -> auf Mitte bleiben
-        panzoomInstance.setTransform(fit);
-        console.warn('Pin nicht gefunden oder keine Koordinaten:', id);
-      }
+      panzoomInstance.setOptions({ minScale });
     } else {
-      // kein Ziel -> einfach Mitte
-      panzoomInstance.setTransform(fit);
+      panzoomInstance.setOptions({ minScale });
+      // Falls ein Ziel übergeben wurde: sofort dort hin
+      if (targetTf) panzoomInstance.setTransform(targetTf);
+      else panzoomInstance.setTransform(fit);
     }
+
+    // Visuelles Highlight am Ende setzen
+    if (id) highlightPin(id);
   });
 }
-
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -492,47 +485,36 @@ function renderList(areaIds){
 
 
   // Pin-Mitte in Kartenkoordinaten (px) berechnen – anhand der % im style
-
 function getPinCenter(id){
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
-
-  // Wir erwarten Prozentwerte im inline-style
-  const leftStr = el.style.left || '';
-  const topStr  = el.style.top  || '';
-  if (!leftStr.endsWith('%') || !topStr.endsWith('%')) {
-    // Falls jemand später CSS ändert (px statt %) -> lieber abbrechen
-    return null;
-  }
-
-  const leftPct = parseFloat(leftStr);
-  const topPct  = parseFloat(topStr);
-  if (!Number.isFinite(leftPct) || !Number.isFinite(topPct)) return null;
-
+  const leftPct = parseFloat(el.style.left);
+  const topPct  = parseFloat(el.style.top);
   const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
   const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
   const cy = (topPct) / 100 * MAP_H;
   return { cx, cy };
 }
 
-function focusPin(id, targetScale = 2){
+  function focusPin(id, targetScale = 2){
   if (!panzoomInstance) return;
-  const { scale: minScale } = computeFit(0.5, 'center');
+  // minScale beachten, nie darunter zoomen
+  const { scale: minScale } = computeFit(START_X_PERCENT);
   const s = Math.max(targetScale, minScale);
   const tf = computeTransformForPin(id, s);
   if (tf) panzoomInstance.setTransform(tf);
 }
 
-  
+
+// Ziel-Transform (x,y,scale) berechnen, damit der Pin in der Mitte landet
 function computeTransformForPin(id, targetScale){
   const pc = getPinCenter(id);
   if (!pc) return null;
   const rect = wrapEl.getBoundingClientRect();
-  const x = rect.width  / 2 - pc.cx * targetScale;
+  const x = rect.width / 2  - pc.cx * targetScale;
   const y = rect.height / 2 - pc.cy * targetScale;
   return { x, y, scale: targetScale };
 }
-
 
 
   /* ====== Start ====== */
@@ -541,7 +523,6 @@ function computeTransformForPin(id, targetScale){
 </script>
 </body>
 </html>
-
 
 
 
