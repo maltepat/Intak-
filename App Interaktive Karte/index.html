@@ -65,8 +65,20 @@
     pointer-events:none;
   }
 
-  .pin { position:absolute; width:64px; height:64px; transform:translate(-50%,-50%); cursor:pointer; }
-  .pin img { width:100%; height:100%; }
+.pin {
+  position: absolute;
+  /* Entferne die Zentrierung */
+  transform: none;         /* <- wichtig */
+  /* mach die Größe wieder relativ, wenn du das alte Verhalten liebst */
+  width: 3.05%;
+  height: auto;
+  cursor: pointer;
+}
+.pin img {
+  width: 70%;
+  height: auto;
+  pointer-events: none;
+}
 
   /* Bottom Sheet */
   .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
@@ -362,6 +374,7 @@
 </script>
 </body>
 </html>
+
 
 
 
