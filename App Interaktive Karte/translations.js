@@ -1706,7 +1706,7 @@ Waschsalon: {
   }
 },
 
-MP: {
+MedPoint: {
   de: {
     title: "Med Point",
     time: "",
@@ -1936,6 +1936,7 @@ Bus: {
 }
 
 };
+
 
 
 
