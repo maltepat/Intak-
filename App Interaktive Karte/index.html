@@ -80,6 +80,24 @@
   pointer-events: none;
 }
 
+  /* Pin-Highlight */
+.pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
+.pin.highlight { z-index: 6; transform: scale(1.25); }
+.pin.highlight img {
+  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
+  animation: pinPulse 1.2s ease-in-out infinite;
+}
+@keyframes pinPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+
+/* (optional) ausgewählte Karte in der Liste visuell markieren */
+.card.selected {
+  border-color: #111;
+  box-shadow: 0 0 0 2px #111 inset;
+}
+
   /* Bottom Sheet */
   .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
     box-shadow:0 -10px 30px rgba(0,0,0,.2); padding:16px; transition:bottom .25s ease; z-index:10; max-height:70vh; overflow:auto; }
@@ -270,50 +288,71 @@
     if (imgEl.complete) cb();
     else imgEl.addEventListener('load', cb, { once: true });
   }
+  
+function getFocusFromURL() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const hash = location.hash || '';
+    return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
+  } catch { return null; }
+}
+  
+ function showMap(focusId = null){
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-  function showMap(){
-    document.getElementById('tab-map').classList.add('active');
-    document.getElementById('tab-list').classList.remove('active');
-    wrapEl.classList.add('active');
-    document.getElementById('list').style.display = 'none';
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
+  }
 
-    if (isMobile()) {
-      enterMapFullscreen();
+  const mapImgEl = document.querySelector('.map-img');
+
+  waitForImage(mapImgEl, () => {
+    const doFit = () => {
       setFullscreenVH();
       wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      enableVHWatchers();
-    }
+      const { scale, x, y } = computeFit(START_X_PERCENT);
 
-    const mapImgEl = document.querySelector('.map-img');
+      if (!panzoomInstance) {
+        panzoomInstance = Panzoom(mapEl, {
+          maxScale: 4,
+          contain: 'outside',
+          startScale: scale,
+          startX: x,
+          startY: y,
+          animate: true
+        });
+        wrapEl.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          panzoomInstance.zoomWithWheel(e);
+        }, { passive: false });
+      }
+      panzoomInstance.setOptions({ minScale: scale });
+      panzoomInstance.setTransform({ x, y, scale });
+    };
 
-    waitForImage(mapImgEl, () => {
-      const doFit = () => {
-        setFullscreenVH();
-        wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-        const { scale, x, y } = computeFit(START_X_PERCENT);
+    // Fokussier-Ziel bestimmen: Übergabe-ID > gemerkte ID > URL > (kein Fokus)
+    focusId = resolveId(
+      focusId || lastFocusId || (typeof getFocusFromURL === 'function' ? getFocusFromURL() : null)
+    );
 
-        if (!panzoomInstance) {
-          panzoomInstance = Panzoom(mapEl, {
-            maxScale: 4,
-            contain: 'outside',
-            startScale: scale,
-            startX: x,
-            startY: y,
-            animate: true
-          });
-          wrapEl.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            panzoomInstance.zoomWithWheel(e);
-          }, { passive: false });
-        }
-        panzoomInstance.setOptions({ minScale: scale });
-        panzoomInstance.setTransform({ x, y, scale });
-      };
+    doFit(); // sofort
+    setTimeout(() => {
+      doFit(); // Sicherheits-Fit
+      if (focusId) {
+        // erst highlighten, dann zoomen/zentrieren
+        highlightPin(focusId);
+        setTimeout(() => focusPin(focusId, 2), 0); // 2 = Zielzoom
+      }
+    }, 150);
+  });
+}
 
-      doFit();            // sofort
-      setTimeout(doFit, 150); // Sicherheits-fit
-    });
-  }
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -333,6 +372,39 @@ const categories = [
     areas:['Q','Krähenwald','WS','Bus','H'] }
 ];
 
+  let lastFocusId = null;        // z.B. 'MedPoint'
+let highlightedPinId = null;
+
+function highlightPin(id) {
+  // altes Highlight entfernen
+  if (highlightedPinId) {
+    const prev = document.getElementById(`pin-${highlightedPinId}`);
+    if (prev) prev.classList.remove('highlight');
+  }
+  // neues setzen
+  const el = document.getElementById(`pin-${id}`);
+  if (el) {
+    el.classList.add('highlight');
+    highlightedPinId = id;
+  }
+}
+
+function clearHighlight() {
+  if (!highlightedPinId) return;
+  const el = document.getElementById(`pin-${highlightedPinId}`);
+  if (el) el.classList.remove('highlight');
+  highlightedPinId = null;
+}
+
+// (optional) Alias-Auflösung, falls mal "med" statt "MedPoint" übergeben wird
+const aliases = { med: 'MedPoint', medpoint: 'MedPoint', 'med point':'MedPoint' };
+function resolveId(id) {
+  if (!id) return id;
+  const key = String(id).toLowerCase();
+  return aliases[key] || id;
+}
+
+
 
   function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
@@ -344,28 +416,60 @@ const categories = [
     });
     renderList(categories.flatMap(c=>c.areas));
   }
+function renderList(areaIds){
+  const list = document.getElementById('list'); 
+  list.innerHTML = '';
 
-  function renderList(areaIds){
-    const list=document.getElementById('list'); list.innerHTML='';
-    areaIds.forEach(id=>{
-      const data = translations[id]?.[currentLang]; if(!data) return;
-      const card=document.createElement('div'); card.className='card';
-      const icon=document.createElement('img'); icon.src=`icons/${id}Icon.png`; icon.alt=id; icon.style.width='52px'; icon.style.height='52px';
-      const body=document.createElement('div');
-      const h=document.createElement('h3'); h.textContent=data.title || id;
-      const meta=document.createElement('div'); meta.className='meta'; meta.innerHTML=data.time||'';
-      const txt=document.createElement('div'); txt.className='meta'; txt.innerHTML=data.text||'';
-      const actions=document.createElement('div'); actions.className='actions';
-      const btn1=document.createElement('button'); btn1.className='btn'; btn1.textContent='Details';
-      btn1.onclick=()=>openSheet(id);
-      const btn2=document.createElement('button'); btn2.className='btn ghost'; btn2.textContent='Auf Karte zeigen';
-      btn2.onclick=()=>{ showMap(); focusPin(id); };
-      actions.append(btn1, btn2);
-      body.append(h, meta, txt, actions);
-      card.append(icon, body);
-      list.appendChild(card);
+  areaIds.forEach(id => {
+    const data = translations[id]?.[currentLang]; 
+    if (!data) return;
+
+    const card = document.createElement('div'); 
+    card.className = 'card';
+    if (id === lastFocusId) card.classList.add('selected'); // << neu
+
+    const icon = document.createElement('img'); 
+    icon.src = `icons/${id}Icon.png`; 
+    icon.alt = id; 
+    icon.style.width = '52px'; 
+    icon.style.height = '52px';
+
+    const body = document.createElement('div');
+    const h = document.createElement('h3'); h.textContent = data.title || id;
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = data.time || '';
+    const txt = document.createElement('div'); txt.className = 'meta'; txt.innerHTML = data.text || '';
+
+    const actions = document.createElement('div'); actions.className = 'actions';
+    const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
+    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
+
+    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
+
+    actions.append(btn1, btn2);
+    body.append(h, meta, txt, actions);
+    card.append(icon, body);
+    list.appendChild(card);
+
+    // Klick auf die Karte selbst markiert die Auswahl (für späteren Tab-Wechsel auf "Karte")
+    card.addEventListener('click', () => {
+      lastFocusId = id;
+      // optisch updaten
+      document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
+      card.classList.add('selected');
     });
-  }
+  });
+}
+
+  document.querySelectorAll('.pin').forEach(el => {
+  el.addEventListener('click', () => {
+    const id = el.id.replace('pin-','');
+    lastFocusId = id;
+    highlightPin(id);
+    openSheet(id);
+  });
+});
+
 
   function openSheet(id){
     const d=translations[id]?.[currentLang]; if(!d) return;
@@ -404,6 +508,7 @@ const categories = [
 </script>
 </body>
 </html>
+
 
 
 
