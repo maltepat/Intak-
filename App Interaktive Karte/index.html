@@ -152,7 +152,6 @@
 <div class="pin" id="pin-Post" style="top:39%; left:45.2%;"><img src="icons/PostIcon.png" alt="Post"/></div>
 <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;"><img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/></div>
 <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;"><img src="icons/InfopointIcon.png" alt="Infopoint"/></div>
-<div class="pin" id="pin-Malteapp" style="top:41%; left:76%;"><img src="icons/MalteappIcon.png" alt="Malte App"/></div>
 <div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;"><img src="icons/L1Icon.png" alt="L1"/></div>
 <div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;"><img src="icons/L2Icon.png" alt="L2"/></div>
 <div class="pin" id="pin-H" style="top:18.7%; left:28.25%;"><img src="icons/HIcon.png" alt="H"/></div>
@@ -166,7 +165,6 @@
 <div class="pin" id="pin-WS" style="top:89%; left:74.5%;"><img src="icons/WSIcon.png" alt="Willkommensschule"/></div>
 <div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;"><img src="icons/WaschsalonIcon.png" alt="Waschsalon"/></div>
 <div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;"><img src="icons/BusIcon.png" alt="Bus"/></div>
-<div class="pin" id="pin-Clowns" style="top:28%; left:60%;"><img src="icons/ClownsIcon.png" alt="Clowns"/></div>
 <div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;"><img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/></div>
 <div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;"><img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/></div>
 <div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;"><img src="icons/CheckinIcon.png" alt="Checkin"/></div>
@@ -321,19 +319,18 @@
 const categories = [
   // Kids / Freizeit
   { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
-    areas:['Sandburg','Kruemelecke','P5','Clowns'] },
+  areas: ['D3', 'Kruemelecke', 'L1', 'L2', 'M5', 'P5', 'Q1', 'Sandburg']},
 
   // Medizin / Hilfe
   { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
     areas:['MedPoint','VWG1','VWG2','VWG3'] }, // 
 
   // Services / Info
-  { id:'services', label:{de:'Service & Info', en:'Services & Info'},
-    areas:['Infopoint','Post','Kleiderkammer','Sprachmittlung','Begleitdienst','Checkin','Bistro','Waschsalon'] },
+  { id:'services', label:{de:'Service & Info', en:'Services & Info'},areas: ['Begleitdienst', 'Bistro', 'Checkin', 'Infopoint', 'Kleiderkammer', 'Post', 'Sprachmittlung', 'Waschsalon'] },
 
   // Gelände / Orientierung
   { id:'site', label:{de:'Gelände', en:'Site'},
-    areas:['Q','Q1','L1','L2','H','D3','M5','Krähenwald','WS','Bus'] }
+    areas:['Q','Krähenwald','WS','Bus'] }
 ];
 
 
@@ -407,6 +404,7 @@ const categories = [
 </script>
 </body>
 </html>
+
 
 
 
