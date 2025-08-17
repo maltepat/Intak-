@@ -204,8 +204,6 @@
 <script src="translations.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
 <script>
-  
-  
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
   let panzoomInstance = null;
@@ -251,7 +249,7 @@
       requestAnimationFrame(() => {
         const t = panzoomInstance.getTransform();
         const min = panzoomInstance.getOptions().minScale ?? 0;
-        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(0.5);
+        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
       });
     }
   }
@@ -285,8 +283,21 @@
     if (isMobile()) { exitMapFullscreen(); disableVHWatchers(); }
   }
 
+  function waitForImage(imgEl, cb) {
+    if (!imgEl) return;
+    if (imgEl.complete) cb();
+    else imgEl.addEventListener('load', cb, { once: true });
+  }
   
-function showMap() {
+function getFocusFromURL() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const hash = location.hash || '';
+    return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
+  } catch { return null; }
+}
+  
+function showMap(focusId = null){
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
@@ -302,29 +313,39 @@ function showMap() {
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    const fit = computeFit(0.5, 'center'); // immer Mitte!
+    // Basis-Fit bestimmen (für minScale)
+    const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
+    // Ziel bestimmen (falls übergeben/gesetzt)
+    const id = focusId || lastFocusId || null;
+    const targetScale = Math.max(2, minScale);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+
     if (!panzoomInstance) {
+      // Panzoom direkt mit der richtigen Start-Transform initialisieren
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
         contain: 'outside',
-        startScale: fit.scale,
-        startX: fit.x,
-        startY: fit.y,
+        startScale: targetTf ? targetTf.scale : fit.scale,
+        startX:    targetTf ? targetTf.x     : fit.x,
+        startY:    targetTf ? targetTf.y     : fit.y,
         animate: true
       });
-
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
-
       panzoomInstance.setOptions({ minScale });
     } else {
       panzoomInstance.setOptions({ minScale });
-      panzoomInstance.setTransform(fit); // immer zurück zur Mitte
+      // Falls ein Ziel übergeben wurde: sofort dort hin
+      if (targetTf) panzoomInstance.setTransform(targetTf);
+      else panzoomInstance.setTransform(fit);
     }
+
+    // Visuelles Highlight am Ende setzen
+    if (id) highlightPin(id);
   });
 }
 
@@ -346,8 +367,41 @@ const categories = [
     areas:['Q','Krähenwald','WS','Bus','H'] }
 ];
 
-  
-   function render(){
+  let lastFocusId = null;        // z.B. 'MedPoint'
+let highlightedPinId = null;
+
+function highlightPin(id) {
+  // altes Highlight entfernen
+  if (highlightedPinId) {
+    const prev = document.getElementById(`pin-${highlightedPinId}`);
+    if (prev) prev.classList.remove('highlight');
+  }
+  // neues setzen
+  const el = document.getElementById(`pin-${id}`);
+  if (el) {
+    el.classList.add('highlight');
+    highlightedPinId = id;
+  }
+}
+
+function clearHighlight() {
+  if (!highlightedPinId) return;
+  const el = document.getElementById(`pin-${highlightedPinId}`);
+  if (el) el.classList.remove('highlight');
+  highlightedPinId = null;
+}
+
+// (optional) Alias-Auflösung, falls mal "med" statt "MedPoint" übergeben wird
+const aliases = { med: 'MedPoint', medpoint: 'MedPoint', 'med point':'MedPoint' };
+function resolveId(id) {
+  if (!id) return id;
+  const key = String(id).toLowerCase();
+  return aliases[key] || id;
+}
+
+
+
+  function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
     categories.forEach(c=>{
       const el=document.createElement('button');
@@ -385,11 +439,7 @@ function renderList(areaIds){
     btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
 
     const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-    btn2.onclick = (e) => { 
-    e.stopPropagation(); 
-    lastFocusId = id; 
-    showMap(); // keine ID mehr übergeben
-    };
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
 
     actions.append(btn1, btn2);
     body.append(h, meta, txt, actions);
@@ -415,7 +465,7 @@ function renderList(areaIds){
   });
 });
 
-    /* ====== Details Infoboxen ====== */
+
   function openSheet(id){
     const d=translations[id]?.[currentLang]; if(!d) return;
     document.getElementById('sTitle').textContent=d.title||id;
@@ -429,10 +479,42 @@ function renderList(areaIds){
     });
     document.getElementById('sheet').classList.add('open');
   }
-  
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
   /* ====== Pin-Fokus ====== */
+
+
+  // Pin-Mitte in Kartenkoordinaten (px) berechnen – anhand der % im style
+function getPinCenter(id){
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
+  const leftPct = parseFloat(el.style.left);
+  const topPct  = parseFloat(el.style.top);
+  const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
+  const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
+  const cy = (topPct) / 100 * MAP_H;
+  return { cx, cy };
+}
+
+  function focusPin(id, targetScale = 2){
+  if (!panzoomInstance) return;
+  // minScale beachten, nie darunter zoomen
+  const { scale: minScale } = computeFit(START_X_PERCENT);
+  const s = Math.max(targetScale, minScale);
+  const tf = computeTransformForPin(id, s);
+  if (tf) panzoomInstance.setTransform(tf);
+}
+
+
+// Ziel-Transform (x,y,scale) berechnen, damit der Pin in der Mitte landet
+function computeTransformForPin(id, targetScale){
+  const pc = getPinCenter(id);
+  if (!pc) return null;
+  const rect = wrapEl.getBoundingClientRect();
+  const x = rect.width / 2  - pc.cx * targetScale;
+  const y = rect.height / 2 - pc.cy * targetScale;
+  return { x, y, scale: targetScale };
+}
 
 
   /* ====== Start ====== */
