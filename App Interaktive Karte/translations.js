@@ -1369,7 +1369,7 @@ For information about opening hours and appointment scheduling, please visit the
 },
 
 
-KW: {
+Krähenwald: {
   de: {
     title: "Krähenwald",
     time: "",
@@ -1936,5 +1936,6 @@ Bus: {
 }
 
 };
+
 
 
