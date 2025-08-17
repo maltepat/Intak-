@@ -4,110 +4,124 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TXL Guide</title>
+
 <style>
+  /* ---------- Basis-Design / Layout-Variablen ---------- */
   :root { --pad: 16px; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: system-ui, sans-serif; background:#f7f7f8; }
 
-  /* Header */
-  .topbar { position:sticky; top:0; z-index:5; display:flex; gap:12px;
-    align-items:center; padding:12px var(--pad); background:#fff; border-bottom:1px solid #e6e6e8; }
+  /* ---------- Kopfzeile (Titel + Sprache) ---------- */
+  .topbar {
+    position:sticky; top:0; z-index:5; display:flex; gap:12px;
+    align-items:center; padding:12px var(--pad);
+    background:#fff; border-bottom:1px solid #e6e6e8;
+  }
   .title { font-weight:700; font-size:18px; }
   .lang { margin-left:auto; }
 
-  /* Tabs */
-  .tabs { position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
-    background:#fff; border-bottom:1px solid #eee; }
+  /* ---------- Tabs (Liste / Karte) ---------- */
+  .tabs {
+    position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
+    background:#fff; border-bottom:1px solid #eee;
+  }
   .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:#f0f0f2; cursor:pointer; }
   .tab.active { background:#111; color:#fff; }
 
-  /* Kategorie-Chips */
+  /* ---------- Kategorie-Chips ---------- */
   .chips { display:flex; gap:8px; overflow:auto; padding:10px var(--pad); }
-  .chip { white-space:nowrap; padding:8px 12px; border-radius:999px; background:#fff; border:1px solid #e5e5e7; cursor:pointer; }
+  .chip {
+    white-space:nowrap; padding:8px 12px; border-radius:999px;
+    background:#fff; border:1px solid #e5e5e7; cursor:pointer;
+  }
 
-  /* Liste */
+  /* ---------- Karten-Liste (Karten = Cards) ---------- */
   .list { padding:12px var(--pad) 80px; display:grid; gap:12px; }
-  .card { background:#fff; border:1px solid #eee; border-radius:14px; padding:14px; display:grid; grid-template-columns:52px 1fr; gap:12px; }
+  .card {
+    background:#fff; border:1px solid #eee; border-radius:14px; padding:14px;
+    display:grid; grid-template-columns:52px 1fr; gap:12px;
+  }
   .card h3 { margin:0 0 6px; font-size:16px; }
   .meta { color:#555; font-size:13px; }
   .actions { margin-top:8px; display:flex; gap:8px; }
   .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
   .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
 
-  /* Karte */
+  /* ---------- Karten-Container (sichtbarer Bereich) ---------- */
   .mapwrap {
-    display:none;
-    height:calc(100vh - 112px);
-    overflow:hidden;
-    position:relative;
-    background:#000;
-    touch-action:none;
-    overscroll-behavior: contain;
+    display:none;                         /* standardmäßig versteckt (Tab „Liste“ aktiv) */
+    height:calc(100vh - 112px);           /* Platz unter Topbar+Tabs */
+    overflow:hidden;                      /* nichts „rauslaufen“ lassen */
+    position:relative; background:#000;   /* schwarzer Hintergrund */
+    touch-action:none; overscroll-behavior: contain;
   }
-  .mapwrap.active { display:block; }
+  .mapwrap.active { display:block; }      /* beim Umschalten auf „Karte“ sichtbar */
 
+  /* ---------- „Map“-Fläche (die Panzoom transformiert) ---------- */
   .map {
     position:relative;
-    width:1920px;
-    height:1080px;
+    width:1920px;   /* natürliche Kartenbreite in Pixeln (Bildgröße) */
+    height:1080px;  /* natürliche Kartenhöhe in Pixeln (Bildgröße)  */
     touch-action:none;
-    will-change: transform;
+    will-change: transform; /* Performance-Hinweis für Browser */
   }
 
+  /* ---------- Kartenbild (liegt huckepack in .map) ---------- */
   .map-img {
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    object-fit:fill;
-    display:block;
-    user-select:none;
-    pointer-events:none;
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:fill;                      /* Bild füllt exakt die 1920x1080 aus */
+    display:block; user-select:none; pointer-events:none;
   }
 
-.pin {
-  position: absolute;
-  /* Entferne die Zentrierung */
-  transform: none;         /* <- wichtig */
-  /* mach die Größe wieder relativ, wenn du das alte Verhalten liebst */
-  width: 3.05%;
-  height: auto;
-  cursor: pointer;
-}
-.pin img {
-  width: 70%;
-  height: auto;
-  pointer-events: none;
-}
+  /* ---------- Pins (absolute Position in Prozent vom Kartenkoordinatensystem) ---------- */
+  .pin {
+    position: absolute;
+    transform: none;       /* keine eigene Transform, Panzoom transformiert Eltern (.map) */
+    width: 3.05%;          /* Breite relativ zur Kartenbreite (damit Pins skalieren) */
+    height: auto;
+    cursor: pointer;
+  }
+  .pin img {
+    width: 70%;     /* Bild etwas kleiner als der Wrapper, optische Luft */
+    height: auto;
+    pointer-events: none; /* Klicks landen auf dem .pin-Container */
+  }
 
-  /* Pin-Highlight */
-.pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
-.pin.highlight { z-index: 6; transform: scale(1.25); }
-.pin.highlight img {
-  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
-  animation: pinPulse 1.2s ease-in-out infinite;
-}
-@keyframes pinPulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.08); }
-}
+  /* ---------- Visuelles Highlight für den aktuell gesuchten Pin ---------- */
+  .pin { transform-origin: center center; }
+  .pin.highlight { z-index: 6; transform: scale(1.25); }
+  .pin.highlight img {
+    filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
+    animation: pinPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes pinPulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.08); }
+  }
 
-/* (optional) ausgewählte Karte in der Liste visuell markieren */
-.card.selected {
-  border-color: #111;
-  box-shadow: 0 0 0 2px #111 inset;
-}
+  /* ---------- Markierung für ausgewählte Listeneinträge ---------- */
+  .card.selected {
+    border-color: #111;
+    box-shadow: 0 0 0 2px #111 inset;
+  }
 
-  /* Bottom Sheet */
-  .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
-    box-shadow:0 -10px 30px rgba(0,0,0,.2); padding:16px; transition:bottom .25s ease; z-index:10; max-height:70vh; overflow:auto; }
+  /* ---------- Bottom Sheet (Details) ---------- */
+  .sheet {
+    position:fixed; left:0; right:0; bottom:-100%;
+    background:#fff; border-radius:16px 16px 0 0;
+    box-shadow:0 -10px 30px rgba(0,0,0,.2);
+    padding:16px; transition:bottom .25s ease; z-index:10;
+    max-height:70vh; overflow:auto;
+  }
   .sheet.open { bottom:0; }
   .sheet h3 { margin:0 0 8px; }
   .sheet .meta { margin-bottom:10px; }
   .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
 
-  /* Mobile: Vollbild-Karte */
+  /* ---------- Mobile: Karte im Vollbild ---------- */
   @media (max-width: 768px) {
+    /* UI-Elemente ausblenden, wenn die Karte fullscreen ist */
     body.fullscreen-map .topbar,
     body.fullscreen-map .tabs,
     body.fullscreen-map .chips { display:none; }
@@ -115,34 +129,28 @@
     body.fullscreen-map { overflow:hidden; }
 
     body.fullscreen-map .mapwrap {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      width: 100vw;
-      height: calc(var(--vh, 1vh) * 100); /* kommt aus JS */
-      display: block !important;
-      background: #000;
-      touch-action: none;
-      overscroll-behavior: contain;
+      position: fixed; inset: 0; z-index: 9999;
+      width: 100vw; height: calc(var(--vh, 1vh) * 100); /* dynamische Höhe gegen Browser-UI */
+      display: block !important; background: #000;
+      touch-action: none; overscroll-behavior: contain;
     }
 
     .exit-fullscreen {
-      position: fixed;
-      z-index: 10000;
+      position: fixed; z-index: 10000;
       right: 12px; top: 12px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid #333;
-      background: rgba(255,255,255,.9);
-      font-weight: 600;
+      padding: 10px 12px; border-radius: 12px; border: 1px solid #333;
+      background: rgba(255,255,255,.9); font-weight: 600;
     }
     body:not(.fullscreen-map) .exit-fullscreen { display:none; }
   }
 </style>
 </head>
+
 <body>
+  <!-- ---------- Kopfzeile ---------- -->
   <div class="topbar">
     <div class="title">TXL Guide</div>
+    <!-- Sprach-Auswahl: ruft setLang(...) auf -->
     <select class="lang" id="lang" onchange="setLang(this.value)">
       <option value="de">DE</option><option value="en">EN</option>
       <option value="tr">TR</option><option value="uk">UK</option>
@@ -150,82 +158,111 @@
     </select>
   </div>
 
+  <!-- ---------- Tabs ---------- -->
   <div class="tabs">
     <div class="tab active" id="tab-list" onclick="showList()">Liste</div>
-    <div class="tab" id="tab-map" onclick="showMap()">Karte</div>
+    <div class="tab" id="tab-map"   onclick="showMap()">Karte</div>
   </div>
 
+  <!-- ---------- Filter-Chips + Liste ---------- -->
   <div class="chips" id="chips"></div>
-
-  <div class="list" id="list"></div>
+  <div class="list"  id="list"></div>
   
+  <!-- ---------- Kartenbereich ---------- -->
   <div class="mapwrap" id="mapwrap">
+    <!-- .map wird von Panzoom transformiert -->
     <div class="map" id="map">
+      <!-- Hintergrundkarte in natürlicher Größe 1920x1080 -->
       <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
-<div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;"><img src="icons/P5Icon.png" alt="P5"/></div>
-<div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;"><img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/></div>
-<div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;"><img src="icons/SandburgIcon.png" alt="Sandburg"/></div>
-<div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;"><img src="icons/Q1Icon.png" alt="Q1"/></div>
-<div class="pin" id="pin-Q" style="top:88.9%; left:50%;"><img src="icons/QIcon.png" alt="Q"/></div>
-<div class="pin" id="pin-Post" style="top:39%; left:45.2%;"><img src="icons/PostIcon.png" alt="Post"/></div>
-<div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;"><img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/></div>
-<div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;"><img src="icons/InfopointIcon.png" alt="Infopoint"/></div>
-<div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;"><img src="icons/L1Icon.png" alt="L1"/></div>
-<div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;"><img src="icons/L2Icon.png" alt="L2"/></div>
-<div class="pin" id="pin-H" style="top:18.7%; left:28.25%;"><img src="icons/HIcon.png" alt="H"/></div>
-<div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;"><img src="icons/D3Icon.png" alt="D3"/></div>
-<div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;"><img src="icons/M5Icon.png" alt="M5"/></div>
-<div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;"><img src="icons/VWG1Icon.png" alt="VWG1"/></div>
-<div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;"><img src="icons/VWG2Icon.png" alt="VWG2"/></div>
-<div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;"><img src="icons/MedPointIcon.png" alt="Med"/></div>
-<div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;"><img src="icons/VWG3Icon.png" alt="VWG3"/></div>
-<div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;"><img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/></div>
-<div class="pin" id="pin-WS" style="top:89%; left:74.5%;"><img src="icons/WSIcon.png" alt="Willkommensschule"/></div>
-<div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;"><img src="icons/WaschsalonIcon.png" alt="Waschsalon"/></div>
-<div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;"><img src="icons/BusIcon.png" alt="Bus"/></div>
-<div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;"><img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/></div>
-<div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;"><img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/></div>
-<div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;"><img src="icons/CheckinIcon.png" alt="Checkin"/></div>
-<div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;"><img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/></div>
-<div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;"><img src="icons/BistroIcon.png" alt="Bistro"/></div>
+
+      <!-- Pins: Position (top/left) in % des Kartenkoordinatensystems -->
+      <div class="pin" id="pin-P5"             style="top:57.49%; left:33.25%;"><img src="icons/P5Icon.png" alt="P5"/></div>
+      <div class="pin" id="pin-Kruemelecke"    style="top:37.9%;  left:28.25%;"><img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/></div>
+      <div class="pin" id="pin-Sandburg"       style="top:5.9%;   left:24.7%;"><img src="icons/SandburgIcon.png" alt="Sandburg"/></div>
+      <div class="pin" id="pin-Q1"             style="top:88.4%;  left:44.4%;"><img src="icons/Q1Icon.png" alt="Q1"/></div>
+      <div class="pin" id="pin-Q"              style="top:88.9%;  left:50%;"><img src="icons/QIcon.png" alt="Q"/></div>
+      <div class="pin" id="pin-Post"           style="top:39%;    left:45.2%;"><img src="icons/PostIcon.png" alt="Post"/></div>
+      <div class="pin" id="pin-Kleiderkammer"  style="top:14.2%;  left:54.4%;"><img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/></div>
+      <div class="pin" id="pin-Infopoint"      style="top:40.96%; left:37.8%;"><img src="icons/InfopointIcon.png" alt="Infopoint"/></div>
+      <div class="pin" id="pin-L1"             style="top:20.3%;  left:14.7%;"><img src="icons/L1Icon.png" alt="L1"/></div>
+      <div class="pin" id="pin-L2"             style="top:10.5%;  left:14.7%;"><img src="icons/L2Icon.png" alt="L2"/></div>
+      <div class="pin" id="pin-H"              style="top:18.7%;  left:28.25%;"><img src="icons/HIcon.png" alt="H"/></div>
+      <div class="pin" id="pin-D3"             style="top:9.7%;   left:54.4%;"><img src="icons/D3Icon.png" alt="D3"/></div>
+      <div class="pin" id="pin-M5"             style="top:54.5%;  left:61.5%;"><img src="icons/M5Icon.png" alt="M5"/></div>
+      <div class="pin" id="pin-VWG1"           style="top:54.8%;  left:41.7%;"><img src="icons/VWG1Icon.png" alt="VWG1"/></div>
+      <div class="pin" id="pin-VWG2"           style="top:52.48%; left:38.02%;"><img src="icons/VWG2Icon.png" alt="VWG2"/></div>
+      <div class="pin" id="pin-MedPoint"       style="top:57.8%;  left:39.7%;"><img src="icons/MedPointIcon.png" alt="Med"/></div>
+      <div class="pin" id="pin-VWG3"           style="top:57.45%; left:45.18%;"><img src="icons/VWG3Icon.png" alt="VWG3"/></div>
+      <div class="pin" id="pin-Krähenwald"     style="top:65.5%;  left:34.5%;"><img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/></div>
+      <div class="pin" id="pin-WS"             style="top:89%;    left:74.5%;"><img src="icons/WSIcon.png" alt="Willkommensschule"/></div>
+      <div class="pin" id="pin-Waschsalon"     style="top:68%;    left:40.5%;"><img src="icons/WaschsalonIcon.png" alt="Waschsalon"/></div>
+      <div class="pin" id="pin-Bus"            style="top:27.35%; left:42.5%;"><img src="icons/BusIcon.png" alt="Bus"/></div>
+      <div class="pin" id="pin-Begleitdienst"  style="top:44%;    left:33.1%;"><img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/></div>
+      <div class="pin" id="pin-Sozialerdienst" style="top:33.5%;  left:27.3%;"><img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/></div>
+      <div class="pin" id="pin-Checkin"        style="top:39%;    left:33.1%;"><img src="icons/CheckinIcon.png" alt="Checkin"/></div>
+      <div class="pin" id="pin-Sprachmittlung" style="top:44%;    left:35.5%;"><img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/></div>
+      <div class="pin" id="pin-Bistro"         style="top:44%;    left:44.5%;"><img src="icons/BistroIcon.png" alt="Bistro"/></div>
     </div>
   </div>
 
+  <!-- Button zum Verlassen des Fullscreen-Modus (nur mobil sichtbar) -->
   <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
 
+  <!-- ---------- Bottom Sheet (Details zu einer Area) ---------- -->
   <div class="sheet" id="sheet">
     <button class="close" onclick="closeSheet()">×</button>
-    <h3 id="sTitle"></h3>
+    <h3 class="title" id="sTitle"></h3>
     <div class="meta" id="sTime"></div>
     <div id="sText"></div>
     <div class="actions" id="sLinks"></div>
   </div>
 
+<!-- Übersetzungsdaten (Objekt `translations`) -->
 <script src="translations.js"></script>
+<!-- Panzoom-Library -->
 <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
-<script>
-  /* ====== STATE & SETTINGS ====== */
-  let currentLang = 'de';
-  let panzoomInstance = null;
 
+<script>
+  /* ==========================================================
+     Z U S T A N D   &   K O N F I G
+     ========================================================== */
+
+  let currentLang = 'de';      // aktuell gewählte Sprache
+  let panzoomInstance = null;  // Panzoom-Objekt (wird einmal erzeugt)
+
+  // Feste Kartengröße in Pixeln (entspricht deiner PNG)
   const MAP_W = 1920, MAP_H = 1080;
+
+  // Mobile-Check (für Vollbild, dynamische Höhe etc.)
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
-  // 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
+  // Wo soll der Erst-Fit horizontal ausgerichtet werden (0 = links, 0.5 = Mitte)
   const START_X_PERCENT = 0.5;
 
-  /* ====== DOM ====== */
-  const wrapEl = document.getElementById('mapwrap');
-  const mapEl  = document.getElementById('map');
+  /* ==========================================================
+     D O M - R E F E R E N Z E N
+     ========================================================== */
 
+  const wrapEl = document.getElementById('mapwrap'); // sichtbares Fenster der Karte
+  const mapEl  = document.getElementById('map');     // transformierbare Fläche (Panzoom)
+
+  // Labels aus der Kategorien-Struktur in der aktuellen Sprache
   function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
+
+  // Sprache setzen + neu rendern
   function setLang(l){ currentLang=l; render(); }
 
-  /* ====== Viewport-Helfer ====== */
+  /* ==========================================================
+     V I E W P O R T - H E L F E R  (für mobiles Vollbild)
+     ========================================================== */
+
+  // setzt CSS-Variable --vh (1% der realen Viewport-Höhe)
   function setFullscreenVH() {
     const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
   }
+
+  // Listener aktivieren: reagiert auf Adressleistenein-/ausblendung u.ä.
   function enableVHWatchers() {
     setFullscreenVH();
     if (window.visualViewport) {
@@ -241,11 +278,15 @@
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
+
+  // Reaktion auf Viewport-Änderungen
   function onVVChange() {
     const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     wrapEl.style.height = h + 'px';
     setFullscreenVH();
-    if (panzoomInstance) {
+
+    // Wichtig: nur refitten, wenn die Karte NICHT offen ist (sonst verlieren wir den Fokus)
+    if (panzoomInstance && !wrapEl.classList.contains('active')) {
       requestAnimationFrame(() => {
         const t = panzoomInstance.getTransform();
         const min = panzoomInstance.getOptions().minScale ?? 0;
@@ -254,15 +295,25 @@
     }
   }
 
-  /* ====== Fit-Funktionen ====== */
+  /* ==========================================================
+     F I T  (Karte so skalieren, dass sie genau ins Fenster passt)
+     ========================================================== */
+
+  // Berechnet Min-Scale + Position, damit die ganze Karte ins wrapEl passt
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
-    const rect = wrapEl.getBoundingClientRect();
-    const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
-    const x = rect.width / 2 - (MAP_W * xPercent) * scale;           // gewünschter Kartenanteil mittig
+    const rect  = wrapEl.getBoundingClientRect(); // sichtbare Fläche
+    const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H); // Min-Vergrößerung
+
+    // x so setzen, dass der gewünschte Kartenanteil (xPercent) ungefähr mittig liegt
+    const x = rect.width / 2 - (MAP_W * xPercent) * scale;
+
+    // y entweder oben bündig oder vertikal mittig
     const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
+
     return { scale, x, y };
   }
 
+  // Anwenden des Fit-Ergebnisses auf Panzoom
   function fitAndCenter(xPercent = START_X_PERCENT) {
     if (!panzoomInstance) return;
     const { scale, x, y } = computeFit(xPercent);
@@ -270,11 +321,17 @@
     panzoomInstance.setOptions({ minScale: scale });
   }
 
-  /* ====== NAVIGATION ====== */
+  /* ==========================================================
+     N A V I G A T I O N  (Tabs, Vollbild)
+     ========================================================== */
+
   function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
-  function exitMapFullscreen(){ document.body.classList.remove('fullscreen-map'); }
+  function exitMapFullscreen(){  document.body.classList.remove('fullscreen-map'); }
+
+  // Zur-Liste-Button (oben rechts im Vollbild)
   document.getElementById('exitFsBtn')?.addEventListener('click', () => showList());
 
+  // Tab „Liste“ aktivieren
   function showList(){
     document.getElementById('tab-list').classList.add('active');
     document.getElementById('tab-map').classList.remove('active');
@@ -283,279 +340,308 @@
     if (isMobile()) { exitMapFullscreen(); disableVHWatchers(); }
   }
 
+  /* ==========================================================
+     A L L G E M E I N E  H E L F E R
+     ========================================================== */
+
+  // Warte, bis ein <img> wirklich geladen ist
   function waitForImage(imgEl, cb) {
     if (!imgEl) return;
     if (imgEl.complete) cb();
     else imgEl.addEventListener('load', cb, { once: true });
   }
-  
-function getFocusFromURL() {
-  try {
-    const p = new URLSearchParams(location.search);
-    const hash = location.hash || '';
-    return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
-  } catch { return null; }
-}
-  
-function focusPin(id){
-  if (!panzoomInstance) return;
-  const { scale: minScale } = computeFit(START_X_PERCENT);
-  const tf = computeTransformForPin(id, minScale);
-  if (tf) {
-    panzoomInstance.setOptions({ contain: 'none' });
-    panzoomInstance.setTransform(tf);
-  }
-}
 
-
-function showMap(focusId = null){
-  // Tabs umschalten
-  document.getElementById('tab-map').classList.add('active');
-  document.getElementById('tab-list').classList.remove('active');
-  wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
-
-  // Mobile Vollbild
-  if (isMobile()) {
-    enterMapFullscreen();
-    setFullscreenVH();
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-    enableVHWatchers();
+  // Warte 2 Frames → garantiert, dass Layout/Höhe nach Sichtbarmachen korrekt ist
+  function nextFrame(cb){
+    requestAnimationFrame(() => requestAnimationFrame(cb));
   }
 
-  const mapImgEl = document.querySelector('.map-img');
+  // Fokus-ID aus URL (optional): ?focus=MedPoint oder #pin-MedPoint
+  function getFocusFromURL() {
+    try {
+      const p = new URLSearchParams(location.search);
+      const hash = location.hash || '';
+      return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
+    } catch { return null; }
+  }
 
-  waitForImage(mapImgEl, () => {
-    // Basis-Fit (für minScale)
-    const fit = computeFit(START_X_PERCENT);
-    const minScale = fit.scale;
+  /* ==========================================================
+     F O K U S  /  Z E N T R I E R U N G
+     ========================================================== */
 
-    // Ziel bestimmen: Übergabe-ID > gemerkte ID > URL
-    const id = resolveId(focusId || lastFocusId || getFocusFromURL() || null);
+  // Berechne den Ankerpunkt eines Pins (genau die top/left-%-Position)
+  function getPinAnchorPx(id){
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    const leftPct = parseFloat(el.style.left || '0');
+    const topPct  = parseFloat(el.style.top  || '0');
+    return { x: (leftPct/100)*MAP_W, y: (topPct/100)*MAP_H };
+  }
 
-    // *** Kein Zoom beim Öffnen ***
-    const targetScale = minScale;
-    const targetTf = id ? computeTransformForPin(id, targetScale) : fit;
+  // Berechne die Ziel-Transformation, um den Pin-Anker in die Mitte des sichtbaren Fensters zu legen
+  function computeTransformForPin(id, scale){
+    const a = getPinAnchorPx(id); if (!a) return null;
+    const rect = wrapEl.getBoundingClientRect();
+    return {
+      x: rect.width/2  - a.x*scale,
+      y: rect.height/2 - a.y*scale,
+      scale
+    };
+  }
 
-    if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        maxScale: 4,
-        contain: 'none',
-        startScale: targetTf.scale,
-        startX:    targetTf.x,
-        startY:    targetTf.y,
-        animate: true
-      });
-      wrapEl.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        panzoomInstance.zoomWithWheel(e);
-      }, { passive: false });
-      panzoomInstance.setOptions({ minScale });
-    } else {
-      panzoomInstance.setOptions({ minScale, contain: 'none' });
-      panzoomInstance.setTransform(targetTf);
+  // Programmgesteuert auf einen Pin „springen“, ohne zu zoomen (immer minScale)
+  function focusPin(id){
+    if (!panzoomInstance) return;
+    const { scale: minScale } = computeFit(START_X_PERCENT);
+    const tf = computeTransformForPin(id, minScale);
+    if (tf) {
+      panzoomInstance.setOptions({ contain: 'none' }); // Panning bei minScale erlauben
+      panzoomInstance.setTransform(tf);
+    }
+  }
+
+  /* ==========================================================
+     K A R T E  Ö F F N E N  (ohne Zoom, aber zentriert)
+     ========================================================== */
+
+  function showMap(focusId = null){
+    // Tabs umschalten
+    document.getElementById('tab-map').classList.add('active');
+    document.getElementById('tab-list').classList.remove('active');
+    wrapEl.classList.add('active');
+    document.getElementById('list').style.display = 'none';
+
+    // Mobile: in den Fullscreen gehen + dynamische Höhe setzen
+    if (isMobile()) {
+      enterMapFullscreen();
+      setFullscreenVH();
+      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+      enableVHWatchers();
     }
 
-    if (id) highlightPin(id);
-  });
-}
+    const mapImgEl = document.querySelector('.map-img');
 
-  /* ====== LISTE & DATEN ====== */
-const categories = [
-  // Kids / Freizeit
-  { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
-  areas: ['D3', 'Kruemelecke', 'L1', 'L2', 'M5', 'P5', 'Q1', 'Sandburg']},
+    // Warten, bis das Kartenbild geladen ist...
+    waitForImage(mapImgEl, () => {
+      // ...und noch 2 Frames warten, damit wrapEl korrekte Maße hat (sonst minScale=0 → „schwarz“)
+      nextFrame(() => {
+        // Min-Fit berechnen
+        let fit = computeFit(START_X_PERCENT);
+        let minScale = fit.scale;
 
-  // Medizin / Hilfe
-  { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
-    areas:['MedPoint','Sozialerdienst','VWG1','VWG2','VWG3'] }, // 
+        // Sicherheitsnetz: falls minScale 0 wäre (sollte durch nextFrame nicht passieren)
+        if (!isFinite(minScale) || minScale <= 0) {
+          setTimeout(() => {
+            fit = computeFit(START_X_PERCENT);
+            minScale = fit.scale || 1; // Fallback
+            initPanzoomWithTarget(minScale, fit);
+          }, 60);
+        } else {
+          initPanzoomWithTarget(minScale, fit);
+        }
+      });
+    });
 
-  // Services / Info
-  { id:'services', label:{de:'Service & Info', en:'Services & Info'},areas: ['Begleitdienst', 'Bistro', 'Checkin', 'Infopoint', 'Kleiderkammer', 'Post', 'Sprachmittlung', 'Waschsalon'] },
+    // Kapselt die eigentliche Panzoom-Initialisierung
+    function initPanzoomWithTarget(minScale, fit){
+      // Ziel-ID bestimmen: Übergabe > letzte Auswahl > URL (optional)
+      const id = resolveId(focusId || lastFocusId || getFocusFromURL() || null);
 
-  // Gelände / Orientierung
-  { id:'site', label:{de:'Gelände', en:'Site'},
-    areas:['Q','Krähenwald','WS','Bus','H'] }
-];
+      // Kein Auto-Zoom beim Öffnen → Ziel-Scale = minScale
+      const targetScale = minScale;
+      const targetTf = id ? computeTransformForPin(id, targetScale) : fit;
 
-  let lastFocusId = null;        // z.B. 'MedPoint'
-let highlightedPinId = null;
+      if (!panzoomInstance) {
+        // Panzoom mit Start-Transform anlegen (direkt zentriert)
+        panzoomInstance = Panzoom(mapEl, {
+          maxScale: 4,
+          contain: 'none',            // Panning bei minScale erlauben
+          startScale: targetTf.scale,
+          startX:    targetTf.x,
+          startY:    targetTf.y,
+          animate: true
+        });
+        // Mausrad-Zoom erlauben (Desktop)
+        wrapEl.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          panzoomInstance.zoomWithWheel(e);
+        }, { passive: false });
+      } else {
+        // Bereits existierende Instanz: Optionen/Fokus updaten
+        panzoomInstance.setOptions({ contain: 'none' });
+        panzoomInstance.setTransform(targetTf);
+      }
+      // minScale setzen (wichtig, damit „zur Gesamtansicht“ später weiß, wo unten ist)
+      panzoomInstance.setOptions({ minScale });
 
-function highlightPin(id) {
-  // altes Highlight entfernen
-  if (highlightedPinId) {
-    const prev = document.getElementById(`pin-${highlightedPinId}`);
-    if (prev) prev.classList.remove('highlight');
+      // Visuelles Highlight setzen
+      if (id) highlightPin(id);
+    }
   }
-  // neues setzen
-  const el = document.getElementById(`pin-${id}`);
-  if (el) {
-    el.classList.add('highlight');
-    highlightedPinId = id;
+
+  /* ==========================================================
+     D A T E N  &  R E N D E R I N G  (Liste + Chips)
+     ========================================================== */
+
+  // Kategorien + zugehörige Areas (IDs müssen Pins + translations enthalten)
+  const categories = [
+    { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
+      areas: ['D3','Kruemelecke','L1','L2','M5','P5','Q1','Sandburg'] },
+
+    { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
+      areas:['MedPoint','Sozialerdienst','VWG1','VWG2','VWG3'] },
+
+    { id:'services', label:{de:'Service & Info', en:'Services & Info'},
+      areas:['Begleitdienst','Bistro','Checkin','Infopoint','Kleiderkammer','Post','Sprachmittlung','Waschsalon'] },
+
+    { id:'site', label:{de:'Gelände', en:'Site'},
+      areas:['Q','Krähenwald','WS','Bus','H'] }
+  ];
+
+  // Zustände für Fokus/Highlight
+  let lastFocusId = null;      // zu fokussierende Area beim Öffnen der Karte
+  let highlightedPinId = null; // gerade visuell gehighlighteter Pin
+
+  // Pin highlighten (pulsierender Glow)
+  function highlightPin(id) {
+    // altes Highlight entfernen
+    if (highlightedPinId) {
+      const prev = document.getElementById(`pin-${highlightedPinId}`);
+      if (prev) prev.classList.remove('highlight');
+    }
+    // neues Highlight setzen
+    const el = document.getElementById(`pin-${id}`);
+    if (el) {
+      el.classList.add('highlight');
+      highlightedPinId = id;
+    }
   }
-}
+  function clearHighlight() {
+    if (!highlightedPinId) return;
+    const el = document.getElementById(`pin-${highlightedPinId}`);
+    if (el) el.classList.remove('highlight');
+    highlightedPinId = null;
+  }
 
-function clearHighlight() {
-  if (!highlightedPinId) return;
-  const el = document.getElementById(`pin-${highlightedPinId}`);
-  if (el) el.classList.remove('highlight');
-  highlightedPinId = null;
-}
+  // optionale Schreibweisen für IDs abfangen (z. B. „med“, „med point“)
+  const aliases = { med:'MedPoint', medpoint:'MedPoint', 'med point':'MedPoint' };
+  function resolveId(id) {
+    if (!id) return id;
+    const key = String(id).toLowerCase();
+    return aliases[key] || id;
+  }
 
-// (optional) Alias-Auflösung, falls mal "med" statt "MedPoint" übergeben wird
-const aliases = { med: 'MedPoint', medpoint: 'MedPoint', 'med point':'MedPoint' };
-function resolveId(id) {
-  if (!id) return id;
-  const key = String(id).toLowerCase();
-  return aliases[key] || id;
-}
-
-
-
+  // Chips rendern + initiale Liste
   function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
     categories.forEach(c=>{
       const el=document.createElement('button');
-      el.className='chip'; el.textContent=tLabel(c);
-      el.onclick=()=>renderList(c.areas);
+      el.className='chip';
+      el.textContent=tLabel(c);
+      el.onclick=()=>renderList(c.areas); // beim Klick: Liste auf diese Kategorie begrenzen
       chips.appendChild(el);
     });
+    // Start: alle Areas zeigen
     renderList(categories.flatMap(c=>c.areas));
   }
-function renderList(areaIds){
-  const list = document.getElementById('list'); 
-  list.innerHTML = '';
 
-  areaIds.forEach(id => {
-    const data = translations[id]?.[currentLang]; 
-    if (!data) return;
+  // Kartenliste rendern
+  function renderList(areaIds){
+    const list = document.getElementById('list'); 
+    list.innerHTML = '';
 
-    const card = document.createElement('div'); 
-    card.className = 'card';
-    if (id === lastFocusId) card.classList.add('selected'); // << neu
+    areaIds.forEach(id => {
+      const data = translations[id]?.[currentLang]; // aus translations.js (muss vorhanden sein!)
+      if (!data) return; // ohne Daten keinen Eintrag anzeigen
 
-    const icon = document.createElement('img'); 
-    icon.src = `icons/${id}Icon.png`; 
-    icon.alt = id; 
-    icon.style.width = '52px'; 
-    icon.style.height = '52px';
+      const card = document.createElement('div'); 
+      card.className = 'card';
+      if (id === lastFocusId) card.classList.add('selected');
 
-    const body = document.createElement('div');
-    const h = document.createElement('h3'); h.textContent = data.title || id;
-    const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = data.time || '';
-    const txt = document.createElement('div'); txt.className = 'meta'; txt.innerHTML = data.text || '';
+      const icon = document.createElement('img'); 
+      icon.src = `icons/${id}Icon.png`; 
+      icon.alt = id;
+      icon.style.width = '52px'; 
+      icon.style.height = '52px';
 
-    const actions = document.createElement('div'); actions.className = 'actions';
-    const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
-    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
+      const body = document.createElement('div');
+      const h   = document.createElement('h3'); h.textContent = data.title || id;
+      const meta= document.createElement('div'); meta.className = 'meta'; meta.innerHTML = data.time || '';
+      const txt = document.createElement('div'); txt.className  = 'meta'; txt.innerHTML  = data.text || '';
 
-    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
+      const actions = document.createElement('div'); actions.className = 'actions';
 
-    actions.append(btn1, btn2);
-    body.append(h, meta, txt, actions);
-    card.append(icon, body);
-    list.appendChild(card);
+      // Details-Button: öffnet Sheet + merkt Fokus-ID (damit Tab „Karte“ weiß, wohin)
+      const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
+      btn1.onclick = (e) => {
+        e.stopPropagation();
+        lastFocusId = id;
+        openSheet(id);
+      };
 
-    // Klick auf die Karte selbst markiert die Auswahl (für späteren Tab-Wechsel auf "Karte")
-    card.addEventListener('click', () => {
-      lastFocusId = id;
-      // optisch updaten
-      document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
-      card.classList.add('selected');
+      // Auf Karte zeigen: direkt Karte öffnen und auf diese ID zentrieren
+      const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
+      btn2.onclick = (e) => {
+        e.stopPropagation();
+        lastFocusId = id;   // merken
+        showMap(id);        // Karte öffnen (ohne Zoom) + zentrieren + highlighten
+      };
+
+      actions.append(btn1, btn2);
+      body.append(h, meta, txt, actions);
+      card.append(icon, body);
+      list.appendChild(card);
+
+      // Klick auf die Karte selbst: Auswahl merken (für späteren Tab-Wechsel)
+      card.addEventListener('click', () => {
+        lastFocusId = id;
+        document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
+        card.classList.add('selected');
+      });
     });
-  });
-}
+  }
 
-  document.querySelectorAll('.pin').forEach(el => {
-  el.addEventListener('click', () => {
-    const id = el.id.replace('pin-','');
-    lastFocusId = id;
-    highlightPin(id);
-    openSheet(id);
-  });
-});
-
+  /* ==========================================================
+     I N F O - S H E E T
+     ========================================================== */
 
   function openSheet(id){
-    const d=translations[id]?.[currentLang]; if(!d) return;
-    document.getElementById('sTitle').textContent=d.title||id;
-    document.getElementById('sTime').innerHTML=d.time||'';
-    document.getElementById('sText').innerHTML=d.text||'';
-    const links=document.getElementById('sLinks'); links.innerHTML='';
+    const d = translations[id]?.[currentLang]; if(!d) return;
+    document.getElementById('sTitle').textContent = d.title || id;
+    document.getElementById('sTime').innerHTML    = d.time  || '';
+    document.getElementById('sText').innerHTML    = d.text  || '';
+
+    const links = document.getElementById('sLinks'); links.innerHTML='';
     (d.links||[]).forEach(l=>{
       const a=document.createElement('a'); a.href=l.url; a.target='_blank';
       a.className='btn'; a.textContent=l.text||'Mehr';
       links.appendChild(a);
     });
+
     document.getElementById('sheet').classList.add('open');
   }
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
-  /* ====== Pin-Fokus ====== */
+  /* ==========================================================
+     P I N - K L I C K S  (auf der Karte)
+     ========================================================== */
 
+  // Jeder Pin öffnet beim Tippen das Sheet und merkt die Auswahl
+  document.querySelectorAll('.pin').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.id.replace('pin-','');
+      lastFocusId = id;
+      highlightPin(id);
+      openSheet(id);
+    });
+  });
 
-  // Pin-Mitte in Kartenkoordinaten (px) berechnen – anhand der % im style
-function getPinCenter(id){
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
-  const leftPct = parseFloat(el.style.left);
-  const topPct  = parseFloat(el.style.top);
-  const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
-  const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
-  const cy = (topPct) / 100 * MAP_H;
-  return { cx, cy };
-}
+  /* ==========================================================
+     S T A R T
+     ========================================================== */
 
-function getPinAnchorPx(id){
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
-  const leftPct = parseFloat(el.style.left || '0');
-  const topPct  = parseFloat(el.style.top  || '0');
-  return { x: (leftPct/100)*MAP_W, y: (topPct/100)*MAP_H };
-}
-
-function computeTransformForPin(id, scale){
-  const a = getPinAnchorPx(id); if (!a) return null;
-  const rect = wrapEl.getBoundingClientRect();
-  return { x: rect.width/2 - a.x*scale, y: rect.height/2 - a.y*scale, scale };
-}
-
-// === Ziel-Transform berechnen: Referenzpunkt in die Viewport-Mitte legen ===
-function computeTransformForPin(id, targetScale){
-  const a = getPinAnchorPx(id);
-  if (!a) return null;
-  const rect = wrapEl.getBoundingClientRect();
-  const x = rect.width  / 2 - a.x * targetScale;
-  const y = rect.height / 2 - a.y * targetScale;
-  return { x, y, scale: targetScale };
-}
-
-
-  /* ====== Start ====== */
-  render();
-  showList(); // immer mit Liste starten
+  render();    // Chips + Liste aufbauen
+  showList();  // mit Liste starten
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
