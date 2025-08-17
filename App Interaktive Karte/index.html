@@ -496,23 +496,24 @@ function getPinCenter(id){
   return { cx, cy };
 }
 
-  function focusPin(id, targetScale = 2){
-  if (!panzoomInstance) return;
-  // minScale beachten, nie darunter zoomen
-  const { scale: minScale } = computeFit(START_X_PERCENT);
-  const s = Math.max(targetScale, minScale);
-  const tf = computeTransformForPin(id, s);
-  if (tf) panzoomInstance.setTransform(tf);
+// === Pin-Referenzpunkt in Karten-Pixeln: exakte top/left-Position (ohne Offset) ===
+function getPinAnchorPx(id){
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
+  const leftPct = parseFloat(el.style.left || '0'); // z.B. "39.7%"
+  const topPct  = parseFloat(el.style.top  || '0');
+  const x = (leftPct / 100) * MAP_W;   // exakt die Prozentposition
+  const y = (topPct  / 100) * MAP_H;
+  return { x, y };
 }
 
-
-// Ziel-Transform (x,y,scale) berechnen, damit der Pin in der Mitte landet
+// === Ziel-Transform berechnen: Referenzpunkt in die Viewport-Mitte legen ===
 function computeTransformForPin(id, targetScale){
-  const pc = getPinCenter(id);
-  if (!pc) return null;
+  const a = getPinAnchorPx(id);
+  if (!a) return null;
   const rect = wrapEl.getBoundingClientRect();
-  const x = rect.width / 2  - pc.cx * targetScale;
-  const y = rect.height / 2 - pc.cy * targetScale;
+  const x = rect.width  / 2 - a.x * targetScale;
+  const y = rect.height / 2 - a.y * targetScale;
   return { x, y, scale: targetScale };
 }
 
@@ -523,6 +524,7 @@ function computeTransformForPin(id, targetScale){
 </script>
 </body>
 </html>
+
 
 
 
