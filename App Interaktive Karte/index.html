@@ -297,12 +297,25 @@ function getFocusFromURL() {
   } catch { return null; }
 }
   
+function focusPin(id){
+  if (!panzoomInstance) return;
+  const { scale: minScale } = computeFit(START_X_PERCENT);
+  const tf = computeTransformForPin(id, minScale);
+  if (tf) {
+    panzoomInstance.setOptions({ contain: 'none' });
+    panzoomInstance.setTransform(tf);
+  }
+}
+
+
 function showMap(focusId = null){
+  // Tabs umschalten
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
+  // Mobile Vollbild
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -313,23 +326,24 @@ function showMap(focusId = null){
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // Basis-Fit bestimmen (für minScale)
+    // Basis-Fit (für minScale)
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
-    // Ziel bestimmen (falls übergeben/gesetzt)
-    const id = focusId || lastFocusId || null;
-    const targetScale = Math.max(2, minScale);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+    // Ziel bestimmen: Übergabe-ID > gemerkte ID > URL
+    const id = resolveId(focusId || lastFocusId || getFocusFromURL() || null);
+
+    // *** Kein Zoom beim Öffnen ***
+    const targetScale = minScale;
+    const targetTf = id ? computeTransformForPin(id, targetScale) : fit;
 
     if (!panzoomInstance) {
-      // Panzoom direkt mit der richtigen Start-Transform initialisieren
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
-        contain: 'outside',
-        startScale: targetTf ? targetTf.scale : fit.scale,
-        startX:    targetTf ? targetTf.x     : fit.x,
-        startY:    targetTf ? targetTf.y     : fit.y,
+        contain: 'none',
+        startScale: targetTf.scale,
+        startX:    targetTf.x,
+        startY:    targetTf.y,
         animate: true
       });
       wrapEl.addEventListener('wheel', (e) => {
@@ -338,13 +352,10 @@ function showMap(focusId = null){
       }, { passive: false });
       panzoomInstance.setOptions({ minScale });
     } else {
-      panzoomInstance.setOptions({ minScale });
-      // Falls ein Ziel übergeben wurde: sofort dort hin
-      if (targetTf) panzoomInstance.setTransform(targetTf);
-      else panzoomInstance.setTransform(fit);
+      panzoomInstance.setOptions({ minScale, contain: 'none' });
+      panzoomInstance.setTransform(targetTf);
     }
 
-    // Visuelles Highlight am Ende setzen
     if (id) highlightPin(id);
   });
 }
@@ -496,15 +507,18 @@ function getPinCenter(id){
   return { cx, cy };
 }
 
-// === Pin-Referenzpunkt in Karten-Pixeln: exakte top/left-Position (ohne Offset) ===
 function getPinAnchorPx(id){
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
-  const leftPct = parseFloat(el.style.left || '0'); // z.B. "39.7%"
+  const leftPct = parseFloat(el.style.left || '0');
   const topPct  = parseFloat(el.style.top  || '0');
-  const x = (leftPct / 100) * MAP_W;   // exakt die Prozentposition
-  const y = (topPct  / 100) * MAP_H;
-  return { x, y };
+  return { x: (leftPct/100)*MAP_W, y: (topPct/100)*MAP_H };
+}
+
+function computeTransformForPin(id, scale){
+  const a = getPinAnchorPx(id); if (!a) return null;
+  const rect = wrapEl.getBoundingClientRect();
+  return { x: rect.width/2 - a.x*scale, y: rect.height/2 - a.y*scale, scale };
 }
 
 // === Ziel-Transform berechnen: Referenzpunkt in die Viewport-Mitte legen ===
@@ -524,6 +538,7 @@ function computeTransformForPin(id, targetScale){
 </script>
 </body>
 </html>
+
 
 
 
