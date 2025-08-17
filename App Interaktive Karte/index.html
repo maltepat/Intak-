@@ -152,6 +152,14 @@
       <div class="pin" id="pin-Post" style="top:39%; left:45.2%;"><img src="icons/PostIcon.png" alt="Post"/></div>
       <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;"><img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/></div>
       <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;"><img src="icons/InfopointIcon.png" alt="Infopoint"/></div>
+      <div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;"><img src="icons/P5Icon.png" alt="P5"/></div>
+      <div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;"><img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/></div>
+      <div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;"><img src="icons/SandburgIcon.png" alt="Sandburg"/></div>
+      <div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;"><img src="icons/Q1Icon.png" alt="Q1"/></div>
+      <div class="pin" id="pin-Q" style="top:88.9%; left:50%;"><img src="icons/QIcon.png" alt="Q"/></div>
+      <div class="pin" id="pin-Post" style="top:39%; left:45.2%;"><img src="icons/PostIcon.png" alt="Post"/></div>
+      <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;"><img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/></div>
+      <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;"><img src="icons/InfopointIcon.png" alt="Infopoint"/></div>
     </div>
   </div>
 
@@ -298,11 +306,24 @@
   }
 
   /* ====== LISTE & DATEN ====== */
-  const categories = [
-    { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'}, areas:['P5','Sandburg','Kruemelecke','Q1','Q'] },
-    { id:'health', label:{de:'Medizin', en:'Medical'}, areas:['MP','Med'] },
-    { id:'services', label:{de:'Service', en:'Services'}, areas:['Post','Kleiderkammer','Infopoint'] }
-  ];
+const categories = [
+  // Kids / Freizeit
+  { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
+    areas:['Sandburg','Kruemelecke','P5','Clowns'] },
+
+  // Medizin / Hilfe
+  { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
+    areas:['Med','VWG1','VWG2','VWG3'] }, // VWG* je nach Inhalt; gern anpassen
+
+  // Services / Info
+  { id:'services', label:{de:'Service & Info', en:'Services & Info'},
+    areas:['Infopoint','Post','Kleiderkammer','Sprachmittlung','Begleitdienst','Checkin','Bistro','Waschsalon'] },
+
+  // Gelände / Orientierung
+  { id:'site', label:{de:'Gelände', en:'Site'},
+    areas:['Q','Q1','L1','L2','H','D3','M5','KW','WS','Bus'] }
+];
+
 
   function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
@@ -374,6 +395,7 @@
 </script>
 </body>
 </html>
+
 
 
 
