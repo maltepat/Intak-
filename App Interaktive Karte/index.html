@@ -297,7 +297,7 @@ function getFocusFromURL() {
   } catch { return null; }
 }
   
- function showMap(focusId = null){
+function showMap(focusId = null){
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
@@ -313,46 +313,41 @@ function getFocusFromURL() {
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    const doFit = () => {
-      setFullscreenVH();
-      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      const { scale, x, y } = computeFit(START_X_PERCENT);
+    // Basis-Fit bestimmen (für minScale)
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
 
-      if (!panzoomInstance) {
-        panzoomInstance = Panzoom(mapEl, {
-          maxScale: 4,
-          contain: 'outside',
-          startScale: scale,
-          startX: x,
-          startY: y,
-          animate: true
-        });
-        wrapEl.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          panzoomInstance.zoomWithWheel(e);
-        }, { passive: false });
-      }
-      panzoomInstance.setOptions({ minScale: scale });
-      panzoomInstance.setTransform({ x, y, scale });
-    };
+    // Ziel bestimmen (falls übergeben/gesetzt)
+    const id = focusId || lastFocusId || null;
+    const targetScale = Math.max(2, minScale);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
-    // Fokussier-Ziel bestimmen: Übergabe-ID > gemerkte ID > URL > (kein Fokus)
-    focusId = resolveId(
-      focusId || lastFocusId || (typeof getFocusFromURL === 'function' ? getFocusFromURL() : null)
-    );
+    if (!panzoomInstance) {
+      // Panzoom direkt mit der richtigen Start-Transform initialisieren
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: targetTf ? targetTf.scale : fit.scale,
+        startX:    targetTf ? targetTf.x     : fit.x,
+        startY:    targetTf ? targetTf.y     : fit.y,
+        animate: true
+      });
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+      }, { passive: false });
+      panzoomInstance.setOptions({ minScale });
+    } else {
+      panzoomInstance.setOptions({ minScale });
+      // Falls ein Ziel übergeben wurde: sofort dort hin
+      if (targetTf) panzoomInstance.setTransform(targetTf);
+      else panzoomInstance.setTransform(fit);
+    }
 
-    doFit(); // sofort
-    setTimeout(() => {
-      doFit(); // Sicherheits-Fit
-      if (focusId) {
-        // erst highlighten, dann zoomen/zentrieren
-        highlightPin(focusId);
-        setTimeout(() => focusPin(focusId, 2), 0); // 2 = Zielzoom
-      }
-    }, 150);
+    // Visuelles Highlight am Ende setzen
+    if (id) highlightPin(id);
   });
 }
-
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -487,20 +482,40 @@ function renderList(areaIds){
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
   /* ====== Pin-Fokus ====== */
-  function focusPin(id, targetScale = 2) {
-    const pinEl = document.getElementById(`pin-${id}`);
-    if (!pinEl || !panzoomInstance) return;
-    fitAndCenter(START_X_PERCENT);
-    const wrapRect = wrapEl.getBoundingClientRect();
-    const pinRect  = pinEl.getBoundingClientRect();
-    const pinCenterX = pinRect.left + pinRect.width/2 - wrapRect.left;
-    const pinCenterY = pinRect.top  + pinRect.height/2 - wrapRect.top;
-    panzoomInstance.zoomToPoint(targetScale, { clientX: wrapRect.left + pinCenterX, clientY: wrapRect.top + pinCenterY });
-    const t = panzoomInstance.getTransform();
-    const dx = (wrapRect.width/2  - pinCenterX) * (1 / t.scale);
-    const dy = (wrapRect.height/2 - pinCenterY) * (1 / t.scale);
-    panzoomInstance.pan(t.x + dx, t.y + dy);
-  }
+
+
+  // Pin-Mitte in Kartenkoordinaten (px) berechnen – anhand der % im style
+function getPinCenter(id){
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
+  const leftPct = parseFloat(el.style.left);
+  const topPct  = parseFloat(el.style.top);
+  const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
+  const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
+  const cy = (topPct) / 100 * MAP_H;
+  return { cx, cy };
+}
+
+  function focusPin(id, targetScale = 2){
+  if (!panzoomInstance) return;
+  // minScale beachten, nie darunter zoomen
+  const { scale: minScale } = computeFit(START_X_PERCENT);
+  const s = Math.max(targetScale, minScale);
+  const tf = computeTransformForPin(id, s);
+  if (tf) panzoomInstance.setTransform(tf);
+}
+
+
+// Ziel-Transform (x,y,scale) berechnen, damit der Pin in der Mitte landet
+function computeTransformForPin(id, targetScale){
+  const pc = getPinCenter(id);
+  if (!pc) return null;
+  const rect = wrapEl.getBoundingClientRect();
+  const x = rect.width / 2  - pc.cx * targetScale;
+  const y = rect.height / 2 - pc.cy * targetScale;
+  return { x, y, scale: targetScale };
+}
+
 
   /* ====== Start ====== */
   render();
@@ -508,6 +523,7 @@ function renderList(areaIds){
 </script>
 </body>
 </html>
+
 
 
 
