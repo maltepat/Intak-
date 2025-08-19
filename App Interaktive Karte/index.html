@@ -71,22 +71,15 @@
   height: auto;
   cursor: pointer;
 
-  /* Pin-Referenzpunkt: Mitte unten (typische „Spitze“) */
-  transform: translate(-50%, -100%);
+  /* Spitze des Pins bleibt Fixpunkt */
+  transform: translate(-50%, -100%) scale(1);
   transform-origin: center bottom;
-}
-.pin img {
-  width: 100%;
-  height: auto;
-  pointer-events: none;
+  transition: transform 0.2s ease; /* für sanftes Ein-/Auszoomen */
 }
 
-  /* Pin-Highlight */
-.pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
-.pin.highlight { z-index: 6; transform: scale(1.25); }
-.pin.highlight img {
-  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
-  animation: pinPulse 1.2s ease-in-out infinite;
+.pin.highlight {
+  z-index: 6;
+  transform: translate(-50%, -100%) scale(1.25);
 }
 @keyframes pinPulse {
   0%, 100% { transform: scale(1); }
@@ -506,6 +499,7 @@ function computeTransformForPin(id, targetScale){
 </script>
 </body>
 </html>
+
 
 
 
