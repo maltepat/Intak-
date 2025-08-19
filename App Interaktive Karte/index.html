@@ -65,28 +65,32 @@
     pointer-events:none;
   }
 
-.pin {
-  position: absolute;
-  /* Entferne die Zentrierung */
-  transform: none;         /* <- wichtig */
-  /* mach die Größe wieder relativ, wenn du das alte Verhalten liebst */
-  width: 3.05%;
-  height: auto;
-  cursor: pointer;
+/* Pins: Spitze ist der Fixpunkt, KEIN Scale */
+.pin{
+  position:absolute;
+  width:3.05%;
+  transform:translate(-50%,-100%);
+  transform-origin:center bottom;
+  z-index:1;
 }
-.pin img {
-  width: 70%;
-  height: auto;
-  pointer-events: none;
+.pin img{
+  display:block;
+  width:100%;
+  height:auto;
+  pointer-events:none;
 }
 
-  /* Pin-Highlight */
-.pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
-.pin.highlight { z-index: 6; transform: scale(1.25); }
-.pin.highlight img {
-  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
+/* Highlight (nur Optik, kein scale) */
+.pin.highlight{ z-index:10; }
+.pin.highlight img{
+  filter: drop-shadow(0 0 10px rgba(255,210,0,.95));
   animation: pinPulse 1.2s ease-in-out infinite;
 }
+@keyframes pinPulse{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.08); }
+}
+  
 @keyframes pinPulse {
   0%, 100% { transform: scale(1); }
   50%      { transform: scale(1.08); }
@@ -241,18 +245,22 @@
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
-  function onVVChange() {
-    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    wrapEl.style.height = h + 'px';
-    setFullscreenVH();
-    if (panzoomInstance) {
-      requestAnimationFrame(() => {
-        const t = panzoomInstance.getTransform();
-        const min = panzoomInstance.getOptions().minScale ?? 0;
-        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-      });
-    }
+function onVVChange() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  wrapEl.style.height = h + 'px';
+  setFullscreenVH();
+  if (!panzoomInstance) return;
+
+  const t = panzoomInstance.getTransform();
+  const fit = computeFit(START_X_PERCENT);
+  panzoomInstance.setOptions({ minScale: Math.min(fit.scale, t.scale) });
+
+  const targetId = highlightedPinId || lastFocusId;
+  if (targetId) {
+    const tf = computeTransformForPin(targetId, t.scale);
+    if (tf) requestAnimationFrame(() => panzoomInstance.setTransform(tf));
   }
+}
 
   /* ====== Fit-Funktionen ====== */
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
@@ -289,15 +297,20 @@
     else imgEl.addEventListener('load', cb, { once: true });
   }
   
-function getFocusFromURL() {
-  try {
-    const p = new URLSearchParams(location.search);
-    const hash = location.hash || '';
-    return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
-  } catch { return null; }
+function getFocusFromURL(){
+  const p=new URLSearchParams(location.search);
+  const h=location.hash||'';
+  return p.get('focus') || (h.startsWith('#pin-') ? decodeURIComponent(h.slice(5)) : null);
 }
+function setFocusInURL(id){
+  const url=new URL(location.href);
+  url.searchParams.set('focus', id);
+  url.hash='#map';
+  history.replaceState(null,'',url);
+}
+
   
-function showMap(focusId = null){
+function showMap(){
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
@@ -313,41 +326,41 @@ function showMap(focusId = null){
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // Basis-Fit bestimmen (für minScale)
     const fit = computeFit(START_X_PERCENT);
-    const minScale = fit.scale;
-
-    // Ziel bestimmen (falls übergeben/gesetzt)
-    const id = focusId || lastFocusId || null;
-    const targetScale = Math.max(2, minScale);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
     if (!panzoomInstance) {
-      // Panzoom direkt mit der richtigen Start-Transform initialisieren
+      // Panzoom nur mit Fit initialisieren
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
         contain: 'outside',
-        startScale: targetTf ? targetTf.scale : fit.scale,
-        startX:    targetTf ? targetTf.x     : fit.x,
-        startY:    targetTf ? targetTf.y     : fit.y,
+        startScale: fit.scale,
+        startX:    fit.x,
+        startY:    fit.y,
         animate: true
       });
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
-      panzoomInstance.setOptions({ minScale });
-    } else {
-      panzoomInstance.setOptions({ minScale });
-      // Falls ein Ziel übergeben wurde: sofort dort hin
-      if (targetTf) panzoomInstance.setTransform(targetTf);
-      else panzoomInstance.setTransform(fit);
+      panzoomInstance.setOptions({ minScale: fit.scale });
     }
-
-    // Visuelles Highlight am Ende setzen
-    if (id) highlightPin(id);
+    // KEIN setTransform mit focusId oder targetScale hier!
   });
 }
+
+function showMapAndFocus(id){
+  showMap(); // Map sichtbar machen / Panzoom bereitstellen
+
+  const img = document.querySelector('.map-img');
+  waitForImage(img, () => {
+    requestAnimationFrame(() => {
+      highlightPin(id);
+      focusPin(id); // nur verschieben, aktuelle Scale bleibt
+    });
+  });
+}
+  
+
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -411,7 +424,8 @@ function resolveId(id) {
     });
     renderList(categories.flatMap(c=>c.areas));
   }
-function renderList(areaIds){
+
+  function renderList(areaIds){
   const list = document.getElementById('list'); 
   list.innerHTML = '';
 
@@ -438,8 +452,8 @@ function renderList(areaIds){
     const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
     btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
 
-    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
+    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMapAndFocus(id); // 
 
     actions.append(btn1, btn2);
     body.append(h, meta, txt, actions);
@@ -481,38 +495,27 @@ function renderList(areaIds){
   }
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
+ 
   /* ====== Pin-Fokus ====== */
-
-
-  // Pin-Mitte in Kartenkoordinaten (px) berechnen – anhand der % im style
-function getPinCenter(id){
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
-  const leftPct = parseFloat(el.style.left);
-  const topPct  = parseFloat(el.style.top);
-  const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
-  const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
-  const cy = (topPct) / 100 * MAP_H;
-  return { cx, cy };
+  function getPinCenter(id){
+  const el=document.getElementById(`pin-${id}`); if(!el) return null;
+  const leftPct=parseFloat(el.style.left), topPct=parseFloat(el.style.top);
+  return { cx:(leftPct/100)*MAP_W, cy:(topPct/100)*MAP_H };
 }
-
+function computeTransformForPin(id, scale){
+  const pc=getPinCenter(id); if(!pc) return null;
+  const {width:vw,height:vh}=wrapEl.getBoundingClientRect();
+  return { x: vw/2 - pc.cx*scale, y: vh/2 - pc.cy*scale, scale };
+}
 function focusPin(id){
-  if (!panzoomInstance) return;
-  const currentScale = panzoomInstance.getTransform().scale;
-  const tf = computeTransformForPin(id, currentScale);
-  if (!tf) return;
-  panzoomInstance.setTransform(tf);
+  if(!panzoomInstance||!id) return;
+  const t=panzoomInstance.getTransform();
+  const fit=computeFit(START_X_PERCENT);
+  panzoomInstance.setOptions({ minScale: Math.min(fit.scale, t.scale) }); // nie hochzwingen
+  const tf=computeTransformForPin(id, t.scale); if(!tf) return;
+  requestAnimationFrame(()=>panzoomInstance.setTransform(tf));            // nur schieben
 }
 
-
-function computeTransformForPin(id, targetScale){
-  const pc = getPinCenter(id);
-  if (!pc) return null;
-  const rect = wrapEl.getBoundingClientRect();
-  const x = rect.width / 2  - pc.cx * targetScale;
-  const y = rect.height / 2 - pc.cy * targetScale;
-  return { x, y, scale: targetScale };
-}
 
 
   /* ====== Start ====== */
@@ -521,6 +524,7 @@ function computeTransformForPin(id, targetScale){
 </script>
 </body>
 </html>
+
 
 
 
