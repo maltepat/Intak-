@@ -226,6 +226,7 @@
     const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
   }
+  
   function enableVHWatchers() {
     setFullscreenVH();
     if (window.visualViewport) {
@@ -234,6 +235,8 @@
     }
     window.addEventListener('orientationchange', onVVChange);
   }
+
+  
   function disableVHWatchers() {
     if (window.visualViewport) {
       visualViewport.removeEventListener('resize', onVVChange);
@@ -246,38 +249,46 @@ function onVVChange() {
   const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   wrapEl.style.height = h + 'px';
   setFullscreenVH();
-  // wenn am Minimum (d. h. "eingepasst"), nach Layout neu einpassen
-  if (panzoomInstance) {
-    requestAnimationFrame(() => {
-      const t = panzoomInstance.getTransform();
-      const min = panzoomInstance.getOptions().minScale ?? 0;
-      if (Math.abs(t.scale - min) < 0.03) fitAfterLayout();
-    });
-  }
+  if (panzoomInstance) fitAfterLayout();
+}
+
+  
+
+  function ensurePanzoom(){
+  if (panzoomInstance) return;
+  panzoomInstance = Panzoom(mapEl, {
+    maxScale: 4,
+    contain: 'outside',
+    // KEINE startX/startY/startScale mehr!
+    animate: true
+  });
+  wrapEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    panzoomInstance.zoomWithWheel(e);
+  }, { passive: false });
 }
 
 
-  /* ====== Fit-Funktionen ====== */
+
 function computeFit() {
-  // immer horizontal zentrieren, vertikal: letterbox
-  const rect = wrapEl.getBoundingClientRect();
-  const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
-  const x = (rect.width  - MAP_W * scale) / 2;   // Mitte
-  const y = (rect.height - MAP_H * scale) / 2;   // Mitte
+  const w = wrapEl.clientWidth, h = wrapEl.clientHeight;
+  const scale = Math.min(w / MAP_W, h / MAP_H);
+  const x = (w - MAP_W * scale) / 2;
+  const y = (h - MAP_H * scale) / 2;
   return { scale, x, y };
 }
 
-  function fitAfterLayout() {
-  // doppelte rAF sichert, dass fullscreen/viewport-Änderungen wirklich durch sind
+
+function fitAfterLayout() {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       const fit = computeFit();
-      if (!panzoomInstance) return;
       panzoomInstance.setOptions({ minScale: fit.scale });
       panzoomInstance.setTransform(fit);
     });
   });
 }
+
 
 
 
@@ -323,25 +334,11 @@ function showMap(){
 
   const mapImgEl = document.querySelector('.map-img');
   waitForImage(mapImgEl, () => {
-    const fit = computeFit();
-
-    if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        maxScale: 4,
-        contain: 'outside',
-        startScale: fit.scale,
-        startX:    fit.x,
-        startY:    fit.y,
-        animate: true
-      });
-      wrapEl.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        panzoomInstance.zoomWithWheel(e);
-      }, { passive: false });
-    }
-
-    // wichtig: nach dem Layout noch mal richtig zentrieren
-    fitAfterLayout();
+    ensurePanzoom();                // 1) initialisieren (ohne startX/Y)
+    const fit = computeFit();       // 2) sofort zentrieren
+    panzoomInstance.setOptions({ minScale: fit.scale });
+    panzoomInstance.setTransform(fit);
+    fitAfterLayout();               // 3) nach Layout nochmals sauber zentrieren
   });
 }
 
@@ -475,4 +472,5 @@ function showMap(){
   render();
   showList(); // immer mit Liste starten
 </script>
+
 
