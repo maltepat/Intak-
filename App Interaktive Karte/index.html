@@ -496,33 +496,13 @@ function getPinCenter(id){
   return { cx, cy };
 }
 
-  function focusPin(id, targetScale = 2){
-  if (!panzoomInstance) return;
-  // minScale beachten, nie darunter zoomen
-  const { scale: minScale } = computeFit(START_X_PERCENT);
-  const s = Math.max(targetScale, minScale);
-  const tf = computeTransformForPin(id, s);
-  if (tf) panzoomInstance.setTransform(tf);
-}
-
-
-// Ziel-Transform (x,y,scale) berechnen, damit der Pin in der Mitte landet
-function computeTransformForPin(id, targetScale){
-  const pc = getPinCenter(id);
-  if (!pc) return null;
-  const rect = wrapEl.getBoundingClientRect();
-  const x = rect.width / 2  - pc.cx * targetScale;
-  const y = rect.height / 2 - pc.cy * targetScale;
-  return { x, y, scale: targetScale };
-}
-
-
   /* ====== Start ====== */
   render();
   showList(); // immer mit Liste starten
 </script>
 </body>
 </html>
+
 
 
 
