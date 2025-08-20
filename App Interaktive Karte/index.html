@@ -263,21 +263,30 @@
     return { scale, x, y };
   }
 
-  function computeTransformForPin(id, scale = 2) {
-  const center = getPinCenter(id);
-  if (!center) return null;
+function computeTransformForPin(id, scale = 2) {
+  const c = getPinCenter(id);
+  if (!c) return null;
 
   const rect = wrapEl.getBoundingClientRect();
-  // Mittelpunkt des Viewports
-  const viewCx = rect.width / 2;
+  const viewCx = rect.width  / 2;
   const viewCy = rect.height / 2;
 
-  // gewünschte Verschiebung berechnen
-  const x = viewCx - center.cx * scale;
-  const y = viewCy - center.cy * scale;
+  // Zielverschiebung, damit der Pin im Viewport-Zentrum liegt
+  let x = viewCx - c.cx * scale;
+  let y = viewCy - c.cy * scale;
+
+  // Clamping: Karte soll nicht „verschwinden“
+  const minX = rect.width  - MAP_W * scale;
+  const minY = rect.height - MAP_H * scale;
+  const maxX = 0;
+  const maxY = 0;
+
+  x = Math.min(maxX, Math.max(minX, x));
+  y = Math.min(maxY, Math.max(minY, y));
 
   return { x, y, scale };
 }
+
 
 
   function fitAndCenter(xPercent = START_X_PERCENT) {
@@ -330,18 +339,24 @@ function showMap(focusId = null){
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // Basis-Fit bestimmen (für minScale)
+    // Basis-Fit (minScale)
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
     // Ziel bestimmen (falls übergeben/gesetzt)
     const id = focusId || lastFocusId || null;
-    const targetScale = Math.max(2, minScale, 2.5);
-const targetTf = id ? computeTransformForPin(id, targetScale) : null;
-console.log("Focus:", id, targetTf);
+    const targetScale = Math.max(minScale, 2.5); // leicht höher, damit Unterschiede sichtbar sind
+    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+
+    // Debug
+    if (id && targetTf) {
+      console.log("🔍 Focus:", id,
+        "→ x:", targetTf.x.toFixed(1),
+        "y:", targetTf.y.toFixed(1),
+        "scale:", targetTf.scale.toFixed(2));
+    }
 
     if (!panzoomInstance) {
-      // Panzoom direkt mit der richtigen Start-Transform initialisieren
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
         contain: 'outside',
@@ -355,19 +370,19 @@ console.log("Focus:", id, targetTf);
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
       panzoomInstance.setOptions({ minScale });
-   } else {
-  panzoomInstance.setOptions({ minScale });
+    } else {
+      // Wichtig: Animation explizit anlassen + minScale updaten
+      panzoomInstance.setOptions({ animate: true, minScale });
 
-  if (targetTf) {
-    const rect = wrapEl.getBoundingClientRect();
-    panzoomInstance.zoomToPoint(
-      targetTf.scale,
-      { clientX: rect.width / 2, clientY: rect.height / 2 }
-    );
-    panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true });
-  } else {
-    panzoomInstance.setTransform(fit);
-  }
+      if (targetTf) {
+        panzoomInstance.setTransform(targetTf);   // ein Schritt: pan+zoom, smooth
+      } else {
+        panzoomInstance.setTransform(fit);
+      }
+    }
+
+    if (id) highlightPin(id);
+  });
 }
 
 
@@ -515,13 +530,26 @@ function renderList(areaIds){
 function getPinCenter(id){
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
-  const leftPct = parseFloat(el.style.left);
-  const topPct  = parseFloat(el.style.top);
-  const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
-  const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
-  const cy = (topPct) / 100 * MAP_H;
+
+  // Prozentangaben aus dem style
+  const leftPct = parseFloat(el.style.left) || 0;
+  const topPct  = parseFloat(el.style.top)  || 0;
+
+  // Basis-Position in Kartenkoordinaten (px, bezogen auf MAP_W/H)
+  const baseX = (leftPct / 100) * MAP_W;
+  const baseY = (topPct  / 100) * MAP_H;
+
+  // Reale Elementgröße (layout-basiert, NICHT transform-abhängig)
+  const w = el.offsetWidth  || (MAP_W * 0.0305); // Fallback: 3.05% von MAP_W
+  const h = el.offsetHeight || (w * 0.7);        // Fallback: img ist 70% breit → grobe Höhe
+
+  // Mittelpunkt des Pins
+  const cx = baseX + w / 2;
+  const cy = baseY + h / 2;
+
   return { cx, cy };
 }
+
 
   /* ====== Start ====== */
   render();
@@ -529,6 +557,7 @@ function getPinCenter(id){
 </script>
 </body>
 </html>
+
 
 
 
