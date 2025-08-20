@@ -355,13 +355,21 @@ console.log("Focus:", id, targetTf);
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
       panzoomInstance.setOptions({ minScale });
-    } else {
-      panzoomInstance.setOptions({ minScale });
-      // Falls ein Ziel übergeben wurde: sofort dort hin
-     if (targetTf) {
-  panzoomInstance.zoomToPoint(targetTf.scale, { clientX: rect.width/2, clientY: rect.height/2 });
-  panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true });
+   } else {
+  panzoomInstance.setOptions({ minScale });
+
+  if (targetTf) {
+    const rect = wrapEl.getBoundingClientRect();
+    panzoomInstance.zoomToPoint(
+      targetTf.scale,
+      { clientX: rect.width / 2, clientY: rect.height / 2 }
+    );
+    panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true });
+  } else {
+    panzoomInstance.setTransform(fit);
+  }
 }
+
 
     // Visuelles Highlight am Ende setzen
     if (id) highlightPin(id);
@@ -521,6 +529,7 @@ function getPinCenter(id){
 </script>
 </body>
 </html>
+
 
 
 
