@@ -67,16 +67,15 @@
 
 .pin {
   position: absolute;
+  /* Entferne die Zentrierung */
+  transform: none;         /* <- wichtig */
+  /* mach die Größe wieder relativ, wenn du das alte Verhalten liebst */
   width: 3.05%;
   height: auto;
   cursor: pointer;
-
-  /* Pin-Referenzpunkt: Mitte unten (typische „Spitze“) */
-  transform: translate(-50%, -100%);
-  transform-origin: center bottom;
 }
 .pin img {
-  width: 100%;
+  width: 70%;
   height: auto;
   pointer-events: none;
 }
@@ -242,19 +241,18 @@
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
-function onVVChange() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  wrapEl.style.height = h + 'px';
-  setFullscreenVH();
-
-  if (!panzoomInstance) return;
-  requestAnimationFrame(() => {
-    const t = panzoomInstance.getTransform();
-    const min = panzoomInstance.getOptions().minScale ?? 0;
-    // Nur wenn wir ungefähr im Fit sind, wieder mittig setzen:
-    if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-  });
-}
+  function onVVChange() {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    wrapEl.style.height = h + 'px';
+    setFullscreenVH();
+    if (panzoomInstance) {
+      requestAnimationFrame(() => {
+        const t = panzoomInstance.getTransform();
+        const min = panzoomInstance.getOptions().minScale ?? 0;
+        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
+      });
+    }
+  }
 
   /* ====== Fit-Funktionen ====== */
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
@@ -300,36 +298,55 @@ function getFocusFromURL() {
 }
   
 function showMap(focusId = null){
-  ...
-  const fit = computeFit(START_X_PERCENT);
-  const minScale = fit.scale;
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-  // Nur zoomen, wenn eine ID ausdrücklich übergeben wurde
-  const id = focusId || null;
-
-  const targetScale = Math.max(2, minScale);
-  const targetTf = id ? computeTransformForPin(id, targetScale) : null;
-
-  if (!panzoomInstance) {
-    panzoomInstance = Panzoom(mapEl, {
-      maxScale: 4,
-      contain: 'outside',
-      startScale: targetTf ? targetTf.scale : fit.scale,
-      startX:    targetTf ? targetTf.x     : fit.x,
-      startY:    targetTf ? targetTf.y     : fit.y,
-      animate: true
-    });
-    wrapEl.addEventListener('wheel', (e) => { e.preventDefault(); panzoomInstance.zoomWithWheel(e); }, { passive:false });
-
-    panzoomInstance.setOptions({ minScale });
-    // Härtung: Initiale Transform **noch einmal** setzen
-    panzoomInstance.setTransform(targetTf || fit);
-  } else {
-    panzoomInstance.setOptions({ minScale });
-    panzoomInstance.setTransform(targetTf || fit);
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
   }
 
-  if (id) highlightPin(id);
+  const mapImgEl = document.querySelector('.map-img');
+
+  waitForImage(mapImgEl, () => {
+    // Basis-Fit bestimmen (für minScale)
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
+
+    // Ziel bestimmen (falls übergeben/gesetzt)
+    const id = focusId || lastFocusId || null;
+    const targetScale = Math.max(2, minScale);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+
+    if (!panzoomInstance) {
+      // Panzoom direkt mit der richtigen Start-Transform initialisieren
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: targetTf ? targetTf.scale : fit.scale,
+        startX:    targetTf ? targetTf.x     : fit.x,
+        startY:    targetTf ? targetTf.y     : fit.y,
+        animate: true
+      });
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+      }, { passive: false });
+      panzoomInstance.setOptions({ minScale });
+    } else {
+      panzoomInstance.setOptions({ minScale });
+      // Falls ein Ziel übergeben wurde: sofort dort hin
+      if (targetTf) panzoomInstance.setTransform(targetTf);
+      else panzoomInstance.setTransform(fit);
+    }
+
+    // Visuelles Highlight am Ende setzen
+    if (id) highlightPin(id);
+  });
 }
 
   /* ====== LISTE & DATEN ====== */
@@ -473,10 +490,10 @@ function getPinCenter(id){
   if (!el) return null;
   const leftPct = parseFloat(el.style.left);
   const topPct  = parseFloat(el.style.top);
-  return {
-    cx: (leftPct / 100) * MAP_W,
-    cy: (topPct  / 100) * MAP_H
-  };
+  const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
+  const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
+  const cy = (topPct) / 100 * MAP_H;
+  return { cx, cy };
 }
 
   function focusPin(id, targetScale = 2){
@@ -506,8 +523,6 @@ function computeTransformForPin(id, targetScale){
 </script>
 </body>
 </html>
-
-
 
 
 
