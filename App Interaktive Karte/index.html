@@ -345,7 +345,7 @@ function showMap(focusId = null){
 
     // Ziel bestimmen (falls übergeben/gesetzt)
     const id = focusId || lastFocusId || null;
-    const targetScale = Math.max(minScale, 2.5); // leicht höher, damit Unterschiede sichtbar sind
+    const targetScale = Math.max(minScale, 2.5); // etwas größer, damit Unterschiede sichtbar sind
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
     // Debug
@@ -371,19 +371,21 @@ function showMap(focusId = null){
       }, { passive: false });
       panzoomInstance.setOptions({ minScale });
     } else {
-      // Wichtig: Animation explizit anlassen + minScale updaten
+      // Animation + minScale aktualisieren
       panzoomInstance.setOptions({ animate: true, minScale });
 
       if (targetTf) {
-        panzoomInstance.setTransform(targetTf);   // ein Schritt: pan+zoom, smooth
+        panzoomInstance.setTransform(targetTf);   // smooth pan+zoom
       } else {
         panzoomInstance.setTransform(fit);
       }
     }
 
+    // Highlight zuletzt
     if (id) highlightPin(id);
   });
 }
+
 
 
     // Visuelles Highlight am Ende setzen
@@ -557,6 +559,7 @@ function getPinCenter(id){
 </script>
 </body>
 </html>
+
 
 
 
