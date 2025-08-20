@@ -160,36 +160,114 @@
   <div class="list" id="list"></div>
   
   <div class="mapwrap" id="mapwrap">
-    <div class="map" id="map">
-      <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
-<div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;"><img src="icons/P5Icon.png" alt="P5"/></div>
-<div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;"><img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/></div>
-<div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;"><img src="icons/SandburgIcon.png" alt="Sandburg"/></div>
-<div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;"><img src="icons/Q1Icon.png" alt="Q1"/></div>
-<div class="pin" id="pin-Q" style="top:88.9%; left:50%;"><img src="icons/QIcon.png" alt="Q"/></div>
-<div class="pin" id="pin-Post" style="top:39%; left:45.2%;"><img src="icons/PostIcon.png" alt="Post"/></div>
-<div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;"><img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/></div>
-<div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;"><img src="icons/InfopointIcon.png" alt="Infopoint"/></div>
-<div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;"><img src="icons/L1Icon.png" alt="L1"/></div>
-<div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;"><img src="icons/L2Icon.png" alt="L2"/></div>
-<div class="pin" id="pin-H" style="top:18.7%; left:28.25%;"><img src="icons/HIcon.png" alt="H"/></div>
-<div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;"><img src="icons/D3Icon.png" alt="D3"/></div>
-<div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;"><img src="icons/M5Icon.png" alt="M5"/></div>
-<div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;"><img src="icons/VWG1Icon.png" alt="VWG1"/></div>
-<div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;"><img src="icons/VWG2Icon.png" alt="VWG2"/></div>
-<div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;"><img src="icons/MedPointIcon.png" alt="Med"/></div>
-<div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;"><img src="icons/VWG3Icon.png" alt="VWG3"/></div>
-<div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;"><img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/></div>
-<div class="pin" id="pin-WS" style="top:89%; left:74.5%;"><img src="icons/WSIcon.png" alt="Willkommensschule"/></div>
-<div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;"><img src="icons/WaschsalonIcon.png" alt="Waschsalon"/></div>
-<div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;"><img src="icons/BusIcon.png" alt="Bus"/></div>
-<div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;"><img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/></div>
-<div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;"><img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/></div>
-<div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;"><img src="icons/CheckinIcon.png" alt="Checkin"/></div>
-<div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;"><img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/></div>
-<div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;"><img src="icons/BistroIcon.png" alt="Bistro"/></div>
-    </div>
+<div class="map" id="map">
+  <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
+
+  <div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;" data-x="33.25" data-y="57.49" data-wp="3.05">
+    <img src="icons/P5Icon.png" alt="P5"/>
   </div>
+
+  <div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;" data-x="28.25" data-y="37.9" data-wp="3.05">
+    <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
+  </div>
+
+  <div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;" data-x="24.7" data-y="5.9" data-wp="3.05">
+    <img src="icons/SandburgIcon.png" alt="Sandburg"/>
+  </div>
+
+  <div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;" data-x="44.4" data-y="88.4" data-wp="3.05">
+    <img src="icons/Q1Icon.png" alt="Q1"/>
+  </div>
+
+  <div class="pin" id="pin-Q" style="top:88.9%; left:50%;" data-x="50" data-y="88.9" data-wp="3.05">
+    <img src="icons/QIcon.png" alt="Q"/>
+  </div>
+
+  <div class="pin" id="pin-Post" style="top:39%; left:45.2%;" data-x="45.2" data-y="39" data-wp="3.05">
+    <img src="icons/PostIcon.png" alt="Post"/>
+  </div>
+
+  <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;" data-x="54.4" data-y="14.2" data-wp="3.05">
+    <img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/>
+  </div>
+
+  <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;" data-x="37.8" data-y="40.96" data-wp="3.05">
+    <img src="icons/InfopointIcon.png" alt="Infopoint"/>
+  </div>
+
+  <div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;" data-x="14.7" data-y="20.3" data-wp="3.05">
+    <img src="icons/L1Icon.png" alt="L1"/>
+  </div>
+
+  <div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;" data-x="14.7" data-y="10.5" data-wp="3.05">
+    <img src="icons/L2Icon.png" alt="L2"/>
+  </div>
+
+  <div class="pin" id="pin-H" style="top:18.7%; left:28.25%;" data-x="28.25" data-y="18.7" data-wp="3.05">
+    <img src="icons/HIcon.png" alt="H"/>
+  </div>
+
+  <div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;" data-x="54.4" data-y="9.7" data-wp="3.05">
+    <img src="icons/D3Icon.png" alt="D3"/>
+  </div>
+
+  <div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;" data-x="61.5" data-y="54.5" data-wp="3.05">
+    <img src="icons/M5Icon.png" alt="M5"/>
+  </div>
+
+  <div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;" data-x="41.7" data-y="54.8" data-wp="3.05">
+    <img src="icons/VWG1Icon.png" alt="VWG1"/>
+  </div>
+
+  <div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;" data-x="38.02" data-y="52.48" data-wp="3.05">
+    <img src="icons/VWG2Icon.png" alt="VWG2"/>
+  </div>
+
+  <div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;" data-x="39.7" data-y="57.8" data-wp="3.05">
+    <img src="icons/MedPointIcon.png" alt="Med"/>
+  </div>
+
+  <div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;" data-x="45.18" data-y="57.45" data-wp="3.05">
+    <img src="icons/VWG3Icon.png" alt="VWG3"/>
+  </div>
+
+  <div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;" data-x="34.5" data-y="65.5" data-wp="3.05">
+    <img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/>
+  </div>
+
+  <div class="pin" id="pin-WS" style="top:89%; left:74.5%;" data-x="74.5" data-y="89" data-wp="3.05">
+    <img src="icons/WSIcon.png" alt="Willkommensschule"/>
+  </div>
+
+  <div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;" data-x="40.5" data-y="68" data-wp="3.05">
+    <img src="icons/WaschsalonIcon.png" alt="Waschsalon"/>
+  </div>
+
+  <div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;" data-x="42.5" data-y="27.35" data-wp="3.05">
+    <img src="icons/BusIcon.png" alt="Bus"/>
+  </div>
+
+  <div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;" data-x="33.1" data-y="44" data-wp="3.05">
+    <img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/>
+  </div>
+
+  <div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;" data-x="27.3" data-y="33.5" data-wp="3.05">
+    <img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/>
+  </div>
+
+  <div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;" data-x="33.1" data-y="39" data-wp="3.05">
+    <img src="icons/CheckinIcon.png" alt="Checkin"/>
+  </div>
+
+  <div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;" data-x="35.5" data-y="44" data-wp="3.05">
+    <img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/>
+  </div>
+
+  <div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;" data-x="44.5" data-y="44" data-wp="3.05">
+    <img src="icons/BistroIcon.png" alt="Bistro"/>
+  </div>
+</div>
+
 
   <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
 
@@ -323,12 +401,14 @@ function getFocusFromURL() {
   } catch { return null; }
 }
   
-function showMap(focusId = null){
+function showMap(focusId = null) {
+  // Tabs umschalten
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
+  // Mobil: in Vollbild wechseln und Höhe korrekt setzen
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -339,52 +419,61 @@ function showMap(focusId = null){
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // Basis-Fit (minScale)
+    // 1) Basis-Fit bestimmen → definiert minScale
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
-    // Ziel bestimmen (falls übergeben/gesetzt)
-    const id = focusId || lastFocusId || null;
-    const targetScale = Math.max(minScale, 2.5); // etwas größer, damit Unterschiede sichtbar sind
+    // 2) Ziel-ID bestimmen & auflösen (Aliasse)
+    const rawId = focusId || lastFocusId || null;
+    const id = resolveId ? resolveId(rawId) : rawId;
+
+    // 3) Ziel-Transform vorbereiten (Zoom leicht > minScale, damit der Fokus sichtbar ist)
+    const TARGET_SCALE = 2.5;
+    const targetScale = Math.max(minScale, TARGET_SCALE);
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
-    // Debug
-    if (id && targetTf) {
-      console.log("🔍 Focus:", id,
-        "→ x:", targetTf.x.toFixed(1),
-        "y:", targetTf.y.toFixed(1),
-        "scale:", targetTf.scale.toFixed(2));
-    }
-
+    // 4) Panzoom initialisieren (einmalig) oder updaten
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
         contain: 'outside',
-        startScale: targetTf ? targetTf.scale : fit.scale,
-        startX:    targetTf ? targetTf.x     : fit.x,
-        startY:    targetTf ? targetTf.y     : fit.y,
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
         animate: true
       });
+      // Wheel-Zoom aktivieren (Desktop), verhindert Scrollen der Seite beim Zoomen
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
-      panzoomInstance.setOptions({ minScale });
-    } else {
-      // Animation + minScale aktualisieren
-      panzoomInstance.setOptions({ animate: true, minScale });
-
-      if (targetTf) {
-        panzoomInstance.setTransform(targetTf);   // smooth pan+zoom
-      } else {
-        panzoomInstance.setTransform(fit);
-      }
     }
 
-    // Highlight zuletzt
-    if (id) highlightPin(id);
+    // minScale immer aktualisieren (z. B. nach Größenwechsel)
+    panzoomInstance.setOptions({ minScale, animate: true });
+
+    // 5) Transform ANSCHLIESSEND setzen (nächster Frame → Maße sind stabil)
+    requestAnimationFrame(() => {
+      if (targetTf) {
+        panzoomInstance.setTransform(targetTf);
+      } else {
+        panzoomInstance.setTransform(fit);
+        if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+      }
+    });
+
+    // 6) Highlight & State merken
+    if (id) {
+      lastFocusId = id;
+      highlightPin && highlightPin(id);
+      // Debug-Ausgabe (optional)
+      if (targetTf) {
+        console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
+      }
+    }
   });
 }
+
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -521,26 +610,25 @@ function renderList(areaIds){
   /* ====== Pin-Fokus ====== */
 
 
-  // Pin-Mitte in Kartenkoordinaten (px) berechnen – anhand der % im style
-function getPinCenter(id){
+// Mittelpunkt eines Pins in Kartenkoordinaten berechnen
+function getPinCenter(id) {
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
 
-  // Prozentangaben aus dem style
-  const leftPct = parseFloat(el.style.left) || 0;
-  const topPct  = parseFloat(el.style.top)  || 0;
+  // Koordinaten aus den Datenattributen lesen
+  let xPct = parseFloat(el.dataset.x);
+  let yPct = parseFloat(el.dataset.y);
+  let wPct = parseFloat(el.dataset.wp);
 
-  // Basis-Position in Kartenkoordinaten (px, bezogen auf MAP_W/H)
-  const baseX = (leftPct / 100) * MAP_W;
-  const baseY = (topPct  / 100) * MAP_H;
+  // Falls data-wp nicht gesetzt: Standardbreite 3.05% (wie deine Icons bisher)
+  if (Number.isNaN(wPct)) wPct = 3.05;
 
-  // Reale Elementgröße (layout-basiert, NICHT transform-abhängig)
-  const w = el.offsetWidth  || (MAP_W * 0.0305); // Fallback: 3.05% von MAP_W
-  const h = el.offsetHeight || (w * 0.7);        // Fallback: img ist 70% breit → grobe Höhe
+  // Umrechnung in Pixel-Koordinaten (auf Basis deiner MAP_W / MAP_H)
+  const wPx = (wPct / 100) * MAP_W;
+  const hPx = wPx * 0.70; // Höhe = ca. 70% der Breite
 
-  // Mittelpunkt des Pins
-  const cx = baseX + w / 2;
-  const cy = baseY + h / 2;
+  const cx = (xPct / 100) * MAP_W + wPx / 2;
+  const cy = (yPct / 100) * MAP_H + hPx / 2;
 
   return { cx, cy };
 }
@@ -552,6 +640,7 @@ function getPinCenter(id){
 </script>
 </body>
 </html>
+
 
 
 
