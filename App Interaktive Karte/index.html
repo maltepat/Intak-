@@ -258,7 +258,7 @@
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
     const rect = wrapEl.getBoundingClientRect();
     const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
-    const x = rect.width / 2 - (MAP_W * xPercent) * scale;           // gewünschter Kartenanteil mittig
+    const x = rect.width / 2 - (MAP_W * xPercent) * scale;  // gewünschter Kartenanteil mittig
     const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
     return { scale, x, y };
   }
@@ -288,118 +288,88 @@
     if (imgEl.complete) cb();
     else imgEl.addEventListener('load', cb, { once: true });
   }
-  
-function getFocusFromURL() {
-  try {
-    const p = new URLSearchParams(location.search);
-    const hash = location.hash || '';
-    return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
-  } catch { return null; }
-}
-  
-function showMap(focusId = null){
-  document.getElementById('tab-map').classList.add('active');
-  document.getElementById('tab-list').classList.remove('active');
-  wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
 
-  if (isMobile()) {
-    enterMapFullscreen();
-    setFullscreenVH();
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-    enableVHWatchers();
-  }
+  // >>> NEU: showMap ohne Fokus/Zoom auf Pins <<<
+  function showMap(){
+    document.getElementById('tab-map').classList.add('active');
+    document.getElementById('tab-list').classList.remove('active');
+    wrapEl.classList.add('active');
+    document.getElementById('list').style.display = 'none';
 
-  const mapImgEl = document.querySelector('.map-img');
-
-  waitForImage(mapImgEl, () => {
-    // Basis-Fit bestimmen (für minScale)
-    const fit = computeFit(START_X_PERCENT);
-    const minScale = fit.scale;
-
-    // Ziel bestimmen (falls übergeben/gesetzt)
-    const id = focusId || lastFocusId || null;
-    const targetScale = Math.max(2, minScale);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
-
-    if (!panzoomInstance) {
-      // Panzoom direkt mit der richtigen Start-Transform initialisieren
-      panzoomInstance = Panzoom(mapEl, {
-        maxScale: 4,
-        contain: 'outside',
-        startScale: targetTf ? targetTf.scale : fit.scale,
-        startX:    targetTf ? targetTf.x     : fit.x,
-        startY:    targetTf ? targetTf.y     : fit.y,
-        animate: true
-      });
-      wrapEl.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        panzoomInstance.zoomWithWheel(e);
-      }, { passive: false });
-      panzoomInstance.setOptions({ minScale });
-    } else {
-      panzoomInstance.setOptions({ minScale });
-      // Falls ein Ziel übergeben wurde: sofort dort hin
-      if (targetTf) panzoomInstance.setTransform(targetTf);
-      else panzoomInstance.setTransform(fit);
+    if (isMobile()) {
+      enterMapFullscreen();
+      setFullscreenVH();
+      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+      enableVHWatchers();
     }
 
-    // Visuelles Highlight am Ende setzen
-    if (id) highlightPin(id);
-  });
-}
+    const mapImgEl = document.querySelector('.map-img');
+
+    waitForImage(mapImgEl, () => {
+      const fit = computeFit(START_X_PERCENT);
+      const minScale = fit.scale;
+
+      if (!panzoomInstance) {
+        panzoomInstance = Panzoom(mapEl, {
+          maxScale: 4,
+          contain: 'outside',
+          startScale: fit.scale,
+          startX:    fit.x,
+          startY:    fit.y,
+          animate: true
+        });
+        wrapEl.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          panzoomInstance.zoomWithWheel(e);
+        }, { passive: false });
+        panzoomInstance.setOptions({ minScale });
+      } else {
+        panzoomInstance.setOptions({ minScale });
+        panzoomInstance.setTransform(fit);
+      }
+    });
+  }
 
   /* ====== LISTE & DATEN ====== */
-const categories = [
-  // Kids / Freizeit
-  { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
-  areas: ['D3', 'Kruemelecke', 'L1', 'L2', 'M5', 'P5', 'Q1', 'Sandburg']},
+  const categories = [
+    { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
+      areas: ['D3', 'Kruemelecke', 'L1', 'L2', 'M5', 'P5', 'Q1', 'Sandburg']},
+    { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
+      areas:['MedPoint','Sozialerdienst','VWG1','VWG2','VWG3'] },
+    { id:'services', label:{de:'Service & Info', en:'Services & Info'},
+      areas: ['Begleitdienst', 'Bistro', 'Checkin', 'Infopoint', 'Kleiderkammer', 'Post', 'Sprachmittlung', 'Waschsalon'] },
+    { id:'site', label:{de:'Gelände', en:'Site'},
+      areas:['Q','Krähenwald','WS','Bus','H'] }
+  ];
 
-  // Medizin / Hilfe
-  { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
-    areas:['MedPoint','Sozialerdienst','VWG1','VWG2','VWG3'] }, // 
+  let lastFocusId = null;
+  let highlightedPinId = null;
 
-  // Services / Info
-  { id:'services', label:{de:'Service & Info', en:'Services & Info'},areas: ['Begleitdienst', 'Bistro', 'Checkin', 'Infopoint', 'Kleiderkammer', 'Post', 'Sprachmittlung', 'Waschsalon'] },
-
-  // Gelände / Orientierung
-  { id:'site', label:{de:'Gelände', en:'Site'},
-    areas:['Q','Krähenwald','WS','Bus','H'] }
-];
-
-  let lastFocusId = null;        // z.B. 'MedPoint'
-let highlightedPinId = null;
-
-function highlightPin(id) {
-  // altes Highlight entfernen
-  if (highlightedPinId) {
-    const prev = document.getElementById(`pin-${highlightedPinId}`);
-    if (prev) prev.classList.remove('highlight');
+  function highlightPin(id) {
+    if (highlightedPinId) {
+      const prev = document.getElementById(`pin-${highlightedPinId}`);
+      if (prev) prev.classList.remove('highlight');
+    }
+    const el = document.getElementById(`pin-${id}`);
+    if (el) {
+      el.classList.add('highlight');
+      highlightedPinId = id;
+    }
   }
-  // neues setzen
-  const el = document.getElementById(`pin-${id}`);
-  if (el) {
-    el.classList.add('highlight');
-    highlightedPinId = id;
+
+  function clearHighlight() {
+    if (!highlightedPinId) return;
+    const el = document.getElementById(`pin-${highlightedPinId}`);
+    if (el) el.classList.remove('highlight');
+    highlightedPinId = null;
   }
-}
 
-function clearHighlight() {
-  if (!highlightedPinId) return;
-  const el = document.getElementById(`pin-${highlightedPinId}`);
-  if (el) el.classList.remove('highlight');
-  highlightedPinId = null;
-}
-
-// (optional) Alias-Auflösung, falls mal "med" statt "MedPoint" übergeben wird
-const aliases = { med: 'MedPoint', medpoint: 'MedPoint', 'med point':'MedPoint' };
-function resolveId(id) {
-  if (!id) return id;
-  const key = String(id).toLowerCase();
-  return aliases[key] || id;
-}
-
-
+  const aliases = { med: 'MedPoint', medpoint: 'MedPoint', 'med point':'MedPoint' };
+  function resolveId(id) {
+    if (!id) return id;
+    const key = String(id).toLowerCase();
+    return aliases[key] || id;
+  }
 
   function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
@@ -411,60 +381,65 @@ function resolveId(id) {
     });
     renderList(categories.flatMap(c=>c.areas));
   }
-function renderList(areaIds){
-  const list = document.getElementById('list'); 
-  list.innerHTML = '';
 
-  areaIds.forEach(id => {
-    const data = translations[id]?.[currentLang]; 
-    if (!data) return;
+  function renderList(areaIds){
+    const list = document.getElementById('list'); 
+    list.innerHTML = '';
 
-    const card = document.createElement('div'); 
-    card.className = 'card';
-    if (id === lastFocusId) card.classList.add('selected'); // << neu
+    areaIds.forEach(id => {
+      const data = translations[id]?.[currentLang]; 
+      if (!data) return;
 
-    const icon = document.createElement('img'); 
-    icon.src = `icons/${id}Icon.png`; 
-    icon.alt = id; 
-    icon.style.width = '52px'; 
-    icon.style.height = '52px';
+      const card = document.createElement('div'); 
+      card.className = 'card';
+      if (id === lastFocusId) card.classList.add('selected');
 
-    const body = document.createElement('div');
-    const h = document.createElement('h3'); h.textContent = data.title || id;
-    const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = data.time || '';
-    const txt = document.createElement('div'); txt.className = 'meta'; txt.innerHTML = data.text || '';
+      const icon = document.createElement('img'); 
+      icon.src = `icons/${id}Icon.png`; 
+      icon.alt = id; 
+      icon.style.width = '52px'; 
+      icon.style.height = '52px';
 
-    const actions = document.createElement('div'); actions.className = 'actions';
-    const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
-    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
+      const body = document.createElement('div');
+      const h = document.createElement('h3'); h.textContent = data.title || id;
+      const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = data.time || '';
+      const txt = document.createElement('div'); txt.className = 'meta'; txt.innerHTML = data.text || '';
 
-    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
+      const actions = document.createElement('div'); actions.className = 'actions';
+      const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
+      btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); };
 
-    actions.append(btn1, btn2);
-    body.append(h, meta, txt, actions);
-    card.append(icon, body);
-    list.appendChild(card);
+      const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
+      // >>> NEU: kein showMap(id) – nur Karte öffnen + Highlight <<<
+      btn2.onclick = (e) => { 
+        e.stopPropagation(); 
+        lastFocusId = id; 
+        showMap(); 
+        highlightPin(id); 
+      };
 
-    // Klick auf die Karte selbst markiert die Auswahl (für späteren Tab-Wechsel auf "Karte")
-    card.addEventListener('click', () => {
+      actions.append(btn1, btn2);
+      body.append(h, meta, txt, actions);
+      card.append(icon, body);
+      list.appendChild(card);
+
+      card.addEventListener('click', () => {
+        lastFocusId = id;
+        document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
+        card.classList.add('selected');
+      });
+    });
+  }
+
+  // Pin-Klick: nur Sheet öffnen + Highlight, kein Zoom
+  document.querySelectorAll('.pin').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.id.replace('pin-','');
       lastFocusId = id;
-      // optisch updaten
-      document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
-      card.classList.add('selected');
+      highlightPin(id);
+      openSheet(id);
     });
   });
-}
-
-  document.querySelectorAll('.pin').forEach(el => {
-  el.addEventListener('click', () => {
-    const id = el.id.replace('pin-','');
-    lastFocusId = id;
-    highlightPin(id);
-    openSheet(id);
-  });
-});
-
 
   function openSheet(id){
     const d=translations[id]?.[currentLang]; if(!d) return;
@@ -481,41 +456,7 @@ function renderList(areaIds){
   }
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
-  /* ====== Pin-Fokus ====== */
-
-
-  // Pin-Mitte in Kartenkoordinaten (px) berechnen – anhand der % im style
-function getPinCenter(id){
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
-  const leftPct = parseFloat(el.style.left);
-  const topPct  = parseFloat(el.style.top);
-  const pinWidthPct = 3.05; // wie im CSS .pin { width: 3.05% }
-  const cx = (leftPct + pinWidthPct * 0.5) / 100 * MAP_W;
-  const cy = (topPct) / 100 * MAP_H;
-  return { cx, cy };
-}
-
   /* ====== Start ====== */
   render();
   showList(); // immer mit Liste starten
 </script>
-</body>
-</html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
