@@ -429,22 +429,18 @@ function showMap(focusId = null) {
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
-    // Ziel-ID (mit Alias-Auflösung)
+    // Ziel-ID bestimmen (mit Alias-Auflösung)
     const rawId = focusId || lastFocusId || null;
     const id = resolveId ? resolveId(rawId) : rawId;
 
-    // 1) Panzoom einmalig initialisieren
+    // Panzoom einmalig initialisieren
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
         contain: 'outside',
         startScale: fit.scale,
         startX: fit.x,
-        startY: fit.y,
-        // Animation global aktivieren (kann pro-call überschrieben werden)
-        animate: true,
-        duration: 350,              // sanfter
-        easing: 'ease-in-out'
+        startY: fit.y
       });
       // Wheel-Zoom (Desktop)
       wrapEl.addEventListener('wheel', (e) => {
@@ -453,10 +449,10 @@ function showMap(focusId = null) {
       }, { passive: false });
     }
 
-    // minScale (nach evtl. Größenwechsel)
-    panzoomInstance.setOptions({ minScale, animate: true, duration: 350 });
+    // minScale immer aktuell halten
+    panzoomInstance.setOptions({ minScale });
 
-    // 2) Ziel-Transform berechnen
+    // Ziel-Transform berechnen
     let targetTf = null;
     if (id) {
       const TARGET_SCALE = 2.5;
@@ -464,36 +460,35 @@ function showMap(focusId = null) {
       targetTf = computeTransformForPin(id, targetScale);
     }
 
-    // 3) Animations-Sequenz
+    // Animations-Funktion (easeInOutCosine)
+    function animateToTransform(target, duration = 400) {
+      const start = panzoomInstance.getTransform();
+      const startTime = performance.now();
+
+      function tick(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easing
+        const x = start.x + (target.x - start.x) * k;
+        const y = start.y + (target.y - start.y) * k;
+        const s = start.scale + (target.scale - start.scale) * k;
+        panzoomInstance.setTransform({ x, y, scale: s });
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    // Anwenden
     if (targetTf) {
-      const { scale, x, y } = targetTf;
-
-      // a) Erst ZOOM (animiert)
-      panzoomInstance.zoom(scale, { animate: true });
-
-      // b) Dann im nächsten Tick PAN (animiert)
-      //    (wegen contain/Bounds erst nach Paint korrekt)
-      setTimeout(() => {
-        panzoomInstance.pan(x, y, { animate: true, /*force: true*/ });
-      }, 0);
-
+      animateToTransform(targetTf, 400);
       lastFocusId = id;
       highlightPin && highlightPin(id);
-
-      // Debug
-      console.log(`🔍 Focus ${id} → scale:${scale.toFixed(2)} x:${x.toFixed(1)} y:${y.toFixed(1)}`);
+      console.log(`🔍 Focus ${id}`, targetTf);
     } else {
-      // Kein Ziel → sauber auf Fit zurück (animiert)
-      // Tipp: reset() animiert per Default
-      panzoomInstance.reset({ animate: true }); // setzt auf startX/Y/Scale zurück
-      // Oder: pan + zoom auf Fit manuell:
-      // panzoomInstance.zoom(fit.scale, { animate: true });
-      // setTimeout(() => panzoomInstance.pan(fit.x, fit.y, { animate: true }), 0);
+      animateToTransform(fit, 400);
       if (id) console.warn('⚠️ Pin nicht gefunden oder ohne Koordinaten:', id);
     }
   });
 }
-
 
 
   /* ====== LISTE & DATEN ====== */
@@ -654,6 +649,32 @@ function getPinCenter(id) {
   return { cx, cy };
 }
 
+function focusPinNoAnim(id, targetScale = 2.5) {
+  const c = getPinCenter(id);
+  if (!c || Number.isNaN(c.cx) || Number.isNaN(c.cy)) {
+    console.warn('⚠️ getPinCenter liefert nichts/NaN für', id, c);
+    return;
+  }
+  const rect = wrapEl.getBoundingClientRect();
+  const scale = Math.max((rect.width / MAP_W), (rect.height / MAP_H), targetScale);
+  const viewCx = rect.width  / 2;
+  const viewCy = rect.height / 2;
+
+  let x = viewCx - c.cx * scale;
+  let y = viewCy - c.cy * scale;
+
+  // clamp
+  const minX = rect.width  - MAP_W * scale;
+  const minY = rect.height - MAP_H * scale;
+  x = Math.min(0, Math.max(minX, x));
+  y = Math.min(0, Math.max(minY, y));
+
+  // Direkt setzen (keine Animation) → sollte SOFORT springen
+  panzoomInstance.setOptions({ animate: false });
+  panzoomInstance.setTransform({ x, y, scale });
+
+  console.log('✅ focusPinNoAnim', { id, cx: c.cx, cy: c.cy, x, y, scale });
+}
 
   /* ====== Start ====== */
   render();
@@ -661,6 +682,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
