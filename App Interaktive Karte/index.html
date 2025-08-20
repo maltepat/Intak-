@@ -200,33 +200,52 @@
     <div id="sText"></div>
     <div class="actions" id="sLinks"></div>
   </div>
-
-<script src="translations.js"></script>
-<script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
+  
 <script>
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
-  let panzoomInstance = null;
 
   const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
-
-  // 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
-  const START_X_PERCENT = 0.5;
 
   /* ====== DOM ====== */
   const wrapEl = document.getElementById('mapwrap');
   const mapEl  = document.getElementById('map');
 
+  // Wichtig: Karte darf transformiert werden
+  mapEl.style.transformOrigin = '0 0';
+
   function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
   function setLang(l){ currentLang=l; render(); }
 
-  /* ====== Viewport-Helfer ====== */
+  /* ====== Fitting ohne Library (deterministisch) ====== */
+  function computeFit() {
+    const w = wrapEl.clientWidth;
+    const h = wrapEl.clientHeight;
+    const scale = Math.min(w / MAP_W, h / MAP_H);
+    const x = (w - MAP_W * scale) / 2;
+    const y = (h - MAP_H * scale) / 2;
+    return { scale, x, y };
+  }
+
+  function applyFit() {
+    const { scale, x, y } = computeFit();
+    // gesamte Karte sichtbar & zentriert, ohne Zoom-Spielereien
+    mapEl.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+  }
+
+  // VisualViewport-Handling für Mobile-UI/Rotation/Keyboard
   function setFullscreenVH() {
     const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
     document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
   }
-  
+  function onVVChange() {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    wrapEl.style.height = h + 'px';
+    setFullscreenVH();
+    // nach Layout einmal sauber fitten
+    requestAnimationFrame(applyFit);
+  }
   function enableVHWatchers() {
     setFullscreenVH();
     if (window.visualViewport) {
@@ -235,68 +254,12 @@
     }
     window.addEventListener('orientationchange', onVVChange);
   }
-
-  
   function disableVHWatchers() {
     if (window.visualViewport) {
       visualViewport.removeEventListener('resize', onVVChange);
       visualViewport.removeEventListener('scroll', onVVChange);
     }
     window.removeEventListener('orientationchange', onVVChange);
-  }
-  
-function onVVChange() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  wrapEl.style.height = h + 'px';
-  setFullscreenVH();
-  if (panzoomInstance) fitAfterLayout();
-}
-
-  
-
-  function ensurePanzoom(){
-  if (panzoomInstance) return;
-  panzoomInstance = Panzoom(mapEl, {
-    maxScale: 4,
-    contain: 'outside',
-    // KEINE startX/startY/startScale mehr!
-    animate: true
-  });
-  wrapEl.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    panzoomInstance.zoomWithWheel(e);
-  }, { passive: false });
-}
-
-
-
-function computeFit() {
-  const w = wrapEl.clientWidth, h = wrapEl.clientHeight;
-  const scale = Math.min(w / MAP_W, h / MAP_H);
-  const x = (w - MAP_W * scale) / 2;
-  const y = (h - MAP_H * scale) / 2;
-  return { scale, x, y };
-}
-
-
-function fitAfterLayout() {
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      const fit = computeFit();
-      panzoomInstance.setOptions({ minScale: fit.scale });
-      panzoomInstance.setTransform(fit);
-    });
-  });
-}
-
-
-
-
-  function fitAndCenter(xPercent = START_X_PERCENT) {
-    if (!panzoomInstance) return;
-    const { scale, x, y } = computeFit(xPercent);
-    panzoomInstance.setTransform({ x, y, scale });
-    panzoomInstance.setOptions({ minScale: scale });
   }
 
   /* ====== NAVIGATION ====== */
@@ -318,29 +281,30 @@ function fitAfterLayout() {
     else imgEl.addEventListener('load', cb, { once: true });
   }
 
-  // >>> NEU: showMap ohne Fokus/Zoom auf Pins <<<
-function showMap(){
-  document.getElementById('tab-map').classList.add('active');
-  document.getElementById('tab-list').classList.remove('active');
-  wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
+  // Karte öffnen: Fullscreen setzen (mobil), dann deterministisch fitten
+  function showMap(){
+    document.getElementById('tab-map').classList.add('active');
+    document.getElementById('tab-list').classList.remove('active');
+    wrapEl.classList.add('active');
+    document.getElementById('list').style.display = 'none';
 
-  if (isMobile()) {
-    enterMapFullscreen();
-    setFullscreenVH();
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-    enableVHWatchers();
+    if (isMobile()) {
+      enterMapFullscreen();
+      setFullscreenVH();
+      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+      enableVHWatchers();
+    }
+
+    const mapImgEl = document.querySelector('.map-img');
+    waitForImage(mapImgEl, () => {
+      // zwei Frames warten -> garantiert, dass Layout/Fullscreen final ist
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          applyFit();  // exakt einmal fitten (keine weitere Logik)
+        });
+      });
+    });
   }
-
-  const mapImgEl = document.querySelector('.map-img');
-  waitForImage(mapImgEl, () => {
-    ensurePanzoom();                // 1) initialisieren (ohne startX/Y)
-    const fit = computeFit();       // 2) sofort zentrieren
-    panzoomInstance.setOptions({ minScale: fit.scale });
-    panzoomInstance.setTransform(fit);
-    fitAfterLayout();               // 3) nach Layout nochmals sauber zentrieren
-  });
-}
 
   /* ====== LISTE & DATEN ====== */
   const categories = [
@@ -422,7 +386,6 @@ function showMap(){
       btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); };
 
       const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-      // >>> NEU: kein showMap(id) – nur Karte öffnen + Highlight <<<
       btn2.onclick = (e) => { 
         e.stopPropagation(); 
         lastFocusId = id; 
@@ -443,7 +406,6 @@ function showMap(){
     });
   }
 
-  // Pin-Klick: nur Sheet öffnen + Highlight, kein Zoom
   document.querySelectorAll('.pin').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.id.replace('pin-','');
@@ -472,5 +434,3 @@ function showMap(){
   render();
   showList(); // immer mit Liste starten
 </script>
-
-
