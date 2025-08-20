@@ -241,27 +241,45 @@
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
-  function onVVChange() {
-    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    wrapEl.style.height = h + 'px';
-    setFullscreenVH();
-    if (panzoomInstance) {
-      requestAnimationFrame(() => {
-        const t = panzoomInstance.getTransform();
-        const min = panzoomInstance.getOptions().minScale ?? 0;
-        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-      });
-    }
+  
+function onVVChange() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  wrapEl.style.height = h + 'px';
+  setFullscreenVH();
+  // wenn am Minimum (d. h. "eingepasst"), nach Layout neu einpassen
+  if (panzoomInstance) {
+    requestAnimationFrame(() => {
+      const t = panzoomInstance.getTransform();
+      const min = panzoomInstance.getOptions().minScale ?? 0;
+      if (Math.abs(t.scale - min) < 0.03) fitAfterLayout();
+    });
   }
+}
+
 
   /* ====== Fit-Funktionen ====== */
-  function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
-    const rect = wrapEl.getBoundingClientRect();
-    const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
-    const x = rect.width / 2 - (MAP_W * xPercent) * scale;  // gewünschter Kartenanteil mittig
-    const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
-    return { scale, x, y };
-  }
+function computeFit() {
+  // immer horizontal zentrieren, vertikal: letterbox
+  const rect = wrapEl.getBoundingClientRect();
+  const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
+  const x = (rect.width  - MAP_W * scale) / 2;   // Mitte
+  const y = (rect.height - MAP_H * scale) / 2;   // Mitte
+  return { scale, x, y };
+}
+
+  function fitAfterLayout() {
+  // doppelte rAF sichert, dass fullscreen/viewport-Änderungen wirklich durch sind
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const fit = computeFit();
+      if (!panzoomInstance) return;
+      panzoomInstance.setOptions({ minScale: fit.scale });
+      panzoomInstance.setTransform(fit);
+    });
+  });
+}
+
+
 
   function fitAndCenter(xPercent = START_X_PERCENT) {
     if (!panzoomInstance) return;
@@ -290,45 +308,42 @@
   }
 
   // >>> NEU: showMap ohne Fokus/Zoom auf Pins <<<
-  function showMap(){
-    document.getElementById('tab-map').classList.add('active');
-    document.getElementById('tab-list').classList.remove('active');
-    wrapEl.classList.add('active');
-    document.getElementById('list').style.display = 'none';
+function showMap(){
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-    if (isMobile()) {
-      enterMapFullscreen();
-      setFullscreenVH();
-      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      enableVHWatchers();
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
+  }
+
+  const mapImgEl = document.querySelector('.map-img');
+  waitForImage(mapImgEl, () => {
+    const fit = computeFit();
+
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: fit.scale,
+        startX:    fit.x,
+        startY:    fit.y,
+        animate: true
+      });
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+      }, { passive: false });
     }
 
-    const mapImgEl = document.querySelector('.map-img');
-
-    waitForImage(mapImgEl, () => {
-      const fit = computeFit(START_X_PERCENT);
-      const minScale = fit.scale;
-
-      if (!panzoomInstance) {
-        panzoomInstance = Panzoom(mapEl, {
-          maxScale: 4,
-          contain: 'outside',
-          startScale: fit.scale,
-          startX:    fit.x,
-          startY:    fit.y,
-          animate: true
-        });
-        wrapEl.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          panzoomInstance.zoomWithWheel(e);
-        }, { passive: false });
-        panzoomInstance.setOptions({ minScale });
-      } else {
-        panzoomInstance.setOptions({ minScale });
-        panzoomInstance.setTransform(fit);
-      }
-    });
-  }
+    // wichtig: nach dem Layout noch mal richtig zentrieren
+    fitAfterLayout();
+  });
+}
 
   /* ====== LISTE & DATEN ====== */
   const categories = [
@@ -460,3 +475,4 @@
   render();
   showList(); // immer mit Liste starten
 </script>
+
