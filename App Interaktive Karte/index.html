@@ -336,8 +336,9 @@ function showMap(focusId = null){
 
     // Ziel bestimmen (falls übergeben/gesetzt)
     const id = focusId || lastFocusId || null;
-    const targetScale = Math.max(2, minScale);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+    const targetScale = Math.max(2, minScale, 2.5);
+const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+console.log("Focus:", id, targetTf);
 
     if (!panzoomInstance) {
       // Panzoom direkt mit der richtigen Start-Transform initialisieren
@@ -357,9 +358,10 @@ function showMap(focusId = null){
     } else {
       panzoomInstance.setOptions({ minScale });
       // Falls ein Ziel übergeben wurde: sofort dort hin
-      if (targetTf) panzoomInstance.setTransform(targetTf);
-      else panzoomInstance.setTransform(fit);
-    }
+     if (targetTf) {
+  panzoomInstance.zoomToPoint(targetTf.scale, { clientX: rect.width/2, clientY: rect.height/2 });
+  panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true });
+}
 
     // Visuelles Highlight am Ende setzen
     if (id) highlightPin(id);
@@ -519,6 +521,7 @@ function getPinCenter(id){
 </script>
 </body>
 </html>
+
 
 
 
