@@ -263,6 +263,23 @@
     return { scale, x, y };
   }
 
+  function computeTransformForPin(id, scale = 2) {
+  const center = getPinCenter(id);
+  if (!center) return null;
+
+  const rect = wrapEl.getBoundingClientRect();
+  // Mittelpunkt des Viewports
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // gewünschte Verschiebung berechnen
+  const x = viewCx - center.cx * scale;
+  const y = viewCy - center.cy * scale;
+
+  return { x, y, scale };
+}
+
+
   function fitAndCenter(xPercent = START_X_PERCENT) {
     if (!panzoomInstance) return;
     const { scale, x, y } = computeFit(xPercent);
@@ -502,6 +519,7 @@ function getPinCenter(id){
 </script>
 </body>
 </html>
+
 
 
 
