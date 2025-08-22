@@ -481,8 +481,7 @@ function showMap(focusId = null) {
 
     // 4) Panzoom initialisieren (einmal) oder wiederverwenden
 panzoomInstance = Panzoom(mapEl, {
--  contain: 'outside',
-+  contain: 'none',
+   contain: 'none',
    maxScale: 4,
    startScale: fit.scale,
    startX: fit.x,
@@ -799,6 +798,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
