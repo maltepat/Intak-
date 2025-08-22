@@ -373,32 +373,43 @@ function onVVChange() {
     return { scale, x, y };
   }
 
-function computeTransformForPin(id, scale = 2) {
+function computeTransformForPin(id, scale = 2.5) {
   const c = getPinCenter(id);
   if (!c) return null;
 
-  const rect = wrapEl.getBoundingClientRect();
+  const rect   = wrapEl.getBoundingClientRect();
   const viewCx = rect.width  / 2;
   const viewCy = rect.height / 2;
 
-  // Ziel: Pin ins Viewport‑Zentrum
-  let x = viewCx - c.cx * scale;
-  let y = viewCy - c.cy * scale;
+  // Ziel-Translation (ohne Klammern): Pin soll im Viewport-Zentrum landen
+  const desiredX = viewCx - c.cx * scale;
+  const desiredY = viewCy - c.cy * scale;
 
-  // "Bleed" erlaubt ein kleines Überziehen über die Kartenränder,
-  // damit Rand‑Pins mittig fokussiert werden können.
-  const BLEED = 200; // px – bei Bedarf justieren (100–300)
+  // Erlaube ein wenig "über den Rand" (Bleed) – SYMMETRISCH!
+  const BLEED = 200; // 100–300 sind gute Startwerte
 
-  const minX = rect.width  - MAP_W * scale + BLEED;
-  const minY = rect.height - MAP_H * scale + BLEED;
-  const maxX = 0 - BLEED;
-  const maxY = 0 - BLEED;
+  // WICHTIG: Vorzeichen korrekt!
+  const minX = rect.width  - MAP_W * scale - BLEED; // weiter nach links (negativer)
+  const minY = rect.height - MAP_H * scale - BLEED; // weiter nach oben  (negativer)
+  const maxX = +BLEED;                               // auch etwas nach rechts (positiver)
+  const maxY = +BLEED;                               // auch etwas nach unten  (positiver)
 
-  x = Math.min(maxX, Math.max(minX, x));
-  y = Math.min(maxY, Math.max(minY, y));
+  // Klammern anwenden
+  const x = Math.min(maxX, Math.max(minX, desiredX));
+  const y = Math.min(maxY, Math.max(minY, desiredY));
+
+  // Optionales Debug – super hilfreich
+  console.log('[TF]', {
+    id, scale,
+    cx: c.cx, cy: c.cy,
+    desiredX, desiredY,
+    minX, maxX, minY, maxY,
+    x, y
+  });
 
   return { x, y, scale };
 }
+
 
 
 function _getTf() {
@@ -794,6 +805,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
