@@ -289,6 +289,33 @@
   let currentLang = 'de';
   let panzoomInstance = null;
 
+  let currentMinScale = 1;
+
+function setOptsSafe(opts = {}) {
+  if (panzoomInstance && typeof panzoomInstance.setOptions === 'function') {
+    panzoomInstance.setOptions(opts);
+  }
+}
+
+function getTfSafe() {
+  if (!panzoomInstance) return null;
+  // v4-Varianten haben meist getScale/getPan, manche haben getTransform
+  if (typeof panzoomInstance.getTransform === 'function') {
+    return panzoomInstance.getTransform();
+  }
+  const s = (typeof panzoomInstance.getScale === 'function') ? panzoomInstance.getScale() : undefined;
+  const p = (typeof panzoomInstance.getPan   === 'function') ? panzoomInstance.getPan()   : undefined;
+  return (s !== undefined && p) ? { x: p.x, y: p.y, scale: s } : null;
+}
+
+function applyTransform(tf, animate = true) {
+  if (!panzoomInstance || !tf) return;
+  const opts = { animate };
+  // Reihenfolge ist wichtig: erst zoom, dann pan
+  if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, opts);
+  if (typeof panzoomInstance.pan  === 'function') panzoomInstance.pan(tf.x, tf.y, opts);
+}
+
   const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
@@ -322,18 +349,20 @@
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
-  function onVVChange() {
-    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    wrapEl.style.height = h + 'px';
-    setFullscreenVH();
-    if (panzoomInstance) {
-      requestAnimationFrame(() => {
-        const t = panzoomInstance.getTransform();
-        const min = panzoomInstance.getOptions().minScale ?? 0;
-        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-      });
-    }
+function onVVChange() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  wrapEl.style.height = h + 'px';
+  setFullscreenVH();
+  if (panzoomInstance) {
+    requestAnimationFrame(() => {
+      const t = getTfSafe();              // ⬅️ statt panzoomInstance.getTransform()
+      if (!t) return;
+      // ⬅️ statt getOptions(): wir tracken minScale selbst über currentMinScale
+      const min = currentMinScale;
+      if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
+    });
   }
+}
 
   /* ====== Fit-Funktionen ====== */
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
@@ -380,12 +409,13 @@ function _getTf() {
 }
 
 
-  function fitAndCenter(xPercent = START_X_PERCENT) {
-    if (!panzoomInstance) return;
-    const { scale, x, y } = computeFit(xPercent);
-    panzoomInstance.setTransform({ x, y, scale });
-    panzoomInstance.setOptions({ minScale: scale });
-  }
+function fitAndCenter(xPercent = START_X_PERCENT) {
+  if (!panzoomInstance) return;
+  const { scale, x, y } = computeFit(xPercent);
+  currentMinScale = scale;           // ⬅️ merken
+  applyTransform({ x, y, scale }, false);
+  setOptsSafe({ minScale: scale });
+}
 
   /* ====== NAVIGATION ====== */
   function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
@@ -435,17 +465,18 @@ function showMap(focusId = null) {
     // 1) Fit & minScale
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
+    currentMinScale = minScale; // <— wir merken uns minScale selbst
 
-    // 2) ID ermitteln
+    // 2) Ziel-ID ermitteln (mit Alias-Auflösung)
     const rawId = focusId || lastFocusId || null;
     const id = resolveId ? resolveId(rawId) : rawId;
 
-    // 3) Ziel-Transform
+    // 3) Ziel-Transform berechnen (leicht größer als Fit)
     const TARGET_SCALE = 2.5;
     const targetScale = Math.max(minScale, TARGET_SCALE);
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
-    // 4) Panzoom init/reuse
+    // 4) Panzoom initialisieren (einmal) oder wiederverwenden
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
@@ -455,67 +486,43 @@ function showMap(focusId = null) {
         startY: fit.y,
         animate: true
       });
-      // --- Polyfill: setTransform, getTransform, setOptions (falls in deiner Version nicht vorhanden)
-if (panzoomInstance && typeof panzoomInstance.setTransform !== 'function') {
-  panzoomInstance.setTransform = function ({ x=0, y=0, scale=1 } = {}, opts = {}) {
-    // Wichtig: erst zoomen, dann pannen (contain/bounds)
-    if (typeof panzoomInstance.zoom === 'function') {
-      panzoomInstance.zoom(scale, opts);
-    }
-    if (typeof panzoomInstance.pan === 'function') {
-      panzoomInstance.pan(x, y, opts);
-    }
-  };
-}
-if (panzoomInstance && typeof panzoomInstance.getTransform !== 'function') {
-  panzoomInstance.getTransform = function () {
-    const s = (typeof panzoomInstance.getScale === 'function') ? panzoomInstance.getScale() : 1;
-    const p = (typeof panzoomInstance.getPan   === 'function') ? panzoomInstance.getPan()   : { x: 0, y: 0 };
-    return { x: p.x, y: p.y, scale: s };
-  };
-}
-if (panzoomInstance && typeof panzoomInstance.setOptions !== 'function') {
-  panzoomInstance.setOptions = function (opts) {
-    // manche Builds haben 'setOptions', andere 'setOptions' nicht -> dann ignorieren
-    // no-op fallback, damit Aufrufe nicht crashen
-  };
-}
 
-console.log('[MAP] panzoom init', _getTf && _getTf());
+      // Wheel-Zoom (nur Desktop)
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
-        panzoomInstance.zoomWithWheel(e);
+        if (typeof panzoomInstance.zoomWithWheel === 'function') {
+          panzoomInstance.zoomWithWheel(e);
+        }
       }, { passive: false });
-    } else {
-console.log('[MAP] panzoom reuse', _getTf && _getTf());
     }
 
-    // 5) Optionen + Nudge-Test
-    panzoomInstance.setOptions({ minScale, animate: true });
+    // 5) Optionen sicher setzen + kleiner „Nudge“ (sichtbarer Beweis)
+    setOptsSafe({ minScale: minScale, animate: true });
 
     const tFit = computeFit(START_X_PERCENT);
-    panzoomInstance.setTransform({ x: tFit.x + 1, y: tFit.y + 1, scale: tFit.scale });
-    panzoomInstance.setTransform(tFit);
+    // Mini-Zucken: 1px hin & zurück (ohne Animation), zeigt: applyTransform funktioniert
+    applyTransform({ x: tFit.x + 1, y: tFit.y + 1, scale: tFit.scale }, false);
+    applyTransform(tFit, false);
     console.log('[MAP] nudge+fit applied');
 
-    // 6) Ziel setzen (nächster Frame)
+    // 6) Ziel animiert setzen (im nächsten Frame)
     requestAnimationFrame(() => {
       if (targetTf) {
-        panzoomInstance.setTransform(targetTf);
+        applyTransform(targetTf, true); // <— statt setTransform
         console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
       } else {
-        panzoomInstance.setTransform(fit);
+        applyTransform(fit, true);      // <— statt setTransform
         if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
       }
     });
 
-    // 7) Highlight/State
+    // 7) Highlight & State
     if (id) {
       lastFocusId = id;
-      highlightPin && highlightPin(id);
+      if (typeof highlightPin === 'function') highlightPin(id);
     }
-  }); // ⬅️ schließt waitForImage Callback
-} // ⬅️ schließt showMap
+  }); // waitForImage
+}
 
 
   /* ====== LISTE & DATEN ====== */
@@ -783,6 +790,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
