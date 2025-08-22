@@ -381,21 +381,25 @@ function computeTransformForPin(id, scale = 2) {
   const viewCx = rect.width  / 2;
   const viewCy = rect.height / 2;
 
-  // Zielverschiebung, damit der Pin im Viewport-Zentrum liegt
+  // Ziel: Pin ins Viewport‑Zentrum
   let x = viewCx - c.cx * scale;
   let y = viewCy - c.cy * scale;
 
-  // Clamping: Karte soll nicht „verschwinden“
-  const minX = rect.width  - MAP_W * scale;
-  const minY = rect.height - MAP_H * scale;
-  const maxX = 0;
-  const maxY = 0;
+  // "Bleed" erlaubt ein kleines Überziehen über die Kartenränder,
+  // damit Rand‑Pins mittig fokussiert werden können.
+  const BLEED = 200; // px – bei Bedarf justieren (100–300)
+
+  const minX = rect.width  - MAP_W * scale + BLEED;
+  const minY = rect.height - MAP_H * scale + BLEED;
+  const maxX = 0 - BLEED;
+  const maxY = 0 - BLEED;
 
   x = Math.min(maxX, Math.max(minX, x));
   y = Math.min(maxY, Math.max(minY, y));
 
   return { x, y, scale };
 }
+
 
 function _getTf() {
   if (!panzoomInstance) return null;
@@ -480,7 +484,7 @@ function showMap(focusId = null) {
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
-        contain: 'outside',
+        contain: 'none',
         startScale: fit.scale,
         startX: fit.x,
         startY: fit.y,
@@ -790,6 +794,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
