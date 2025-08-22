@@ -74,12 +74,6 @@
   height: auto;
   cursor: pointer;
 }
-
-  #mapwrap { position: relative; overflow: hidden; }
-#map     { position: relative; will-change: transform; }
-.pin     { position: absolute; }
-
-  
 .pin img {
   width: 70%;
   height: auto;
@@ -287,7 +281,7 @@
 
 <script src="translations.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
-
+<script>
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
   let panzoomInstance = null;
@@ -408,13 +402,13 @@ function getFocusFromURL() {
 }
   
 function showMap(focusId = null) {
-  // Tabs & Sichtbarkeit
+  // Tabs umschalten
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobil: Vollbild & Höhe
+  // Mobil: in Vollbild wechseln und Höhe korrekt setzen
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -425,14 +419,20 @@ function showMap(focusId = null) {
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
+    // 1) Basis-Fit bestimmen → definiert minScale
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
-    // Ziel-ID (mit Alias-Auflösung)
+    // 2) Ziel-ID bestimmen & auflösen (Aliasse)
     const rawId = focusId || lastFocusId || null;
     const id = resolveId ? resolveId(rawId) : rawId;
 
-    // 1) Panzoom einmalig initialisieren
+    // 3) Ziel-Transform vorbereiten (Zoom leicht > minScale, damit der Fokus sichtbar ist)
+    const TARGET_SCALE = 2.5;
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+
+    // 4) Panzoom initialisieren (einmalig) oder updaten
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
         maxScale: 4,
@@ -440,59 +440,39 @@ function showMap(focusId = null) {
         startScale: fit.scale,
         startX: fit.x,
         startY: fit.y,
-        // Animation global aktivieren (kann pro-call überschrieben werden)
-        animate: true,
-        duration: 350,              // sanfter
-        easing: 'ease-in-out'
+        animate: true
       });
-      // Wheel-Zoom (Desktop)
+      // Wheel-Zoom aktivieren (Desktop), verhindert Scrollen der Seite beim Zoomen
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
     }
 
-    // minScale (nach evtl. Größenwechsel)
-    panzoomInstance.setOptions({ minScale, animate: true, duration: 350 });
+    // minScale immer aktualisieren (z. B. nach Größenwechsel)
+    panzoomInstance.setOptions({ minScale, animate: true });
 
-    // 2) Ziel-Transform berechnen
-    let targetTf = null;
+    // 5) Transform ANSCHLIESSEND setzen (nächster Frame → Maße sind stabil)
+    requestAnimationFrame(() => {
+      if (targetTf) {
+        panzoomInstance.setTransform(targetTf);
+      } else {
+        panzoomInstance.setTransform(fit);
+        if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+      }
+    });
+
+    // 6) Highlight & State merken
     if (id) {
-      const TARGET_SCALE = 2.5;
-      const targetScale = Math.max(minScale, TARGET_SCALE);
-      targetTf = computeTransformForPin(id, targetScale);
-    }
-
-    // 3) Animations-Sequenz
-    if (targetTf) {
-      const { scale, x, y } = targetTf;
-
-      // a) Erst ZOOM (animiert)
-      panzoomInstance.zoom(scale, { animate: true });
-
-      // b) Dann im nächsten Tick PAN (animiert)
-      //    (wegen contain/Bounds erst nach Paint korrekt)
-      setTimeout(() => {
-        panzoomInstance.pan(x, y, { animate: true, /*force: true*/ });
-      }, 0);
-
       lastFocusId = id;
       highlightPin && highlightPin(id);
-
-      // Debug
-      console.log(`🔍 Focus ${id} → scale:${scale.toFixed(2)} x:${x.toFixed(1)} y:${y.toFixed(1)}`);
-    } else {
-      // Kein Ziel → sauber auf Fit zurück (animiert)
-      // Tipp: reset() animiert per Default
-      panzoomInstance.reset({ animate: true }); // setzt auf startX/Y/Scale zurück
-      // Oder: pan + zoom auf Fit manuell:
-      // panzoomInstance.zoom(fit.scale, { animate: true });
-      // setTimeout(() => panzoomInstance.pan(fit.x, fit.y, { animate: true }), 0);
-      if (id) console.warn('⚠️ Pin nicht gefunden oder ohne Koordinaten:', id);
+      // Debug-Ausgabe (optional)
+      if (targetTf) {
+        console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
+      }
     }
   });
 }
-
 
 
   /* ====== LISTE & DATEN ====== */
@@ -660,7 +640,6 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
-
 
 
 
