@@ -282,6 +282,8 @@
 <script src="translations.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
 <script>
+  console.log('[MAP] boot');                    // <— kleiner Rauchtest
+
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
   let panzoomInstance = null;
@@ -433,46 +435,45 @@ function showMap(focusId = null) {
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
     // 4) Panzoom initialisieren (einmalig) oder updaten
-    if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        maxScale: 4,
-        contain: 'outside',
-        startScale: fit.scale,
-        startX: fit.x,
-        startY: fit.y,
-        animate: true
-      });
-      // Wheel-Zoom aktivieren (Desktop), verhindert Scrollen der Seite beim Zoomen
-      wrapEl.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        panzoomInstance.zoomWithWheel(e);
-      }, { passive: false });
-    }
-
-    // minScale immer aktualisieren (z. B. nach Größenwechsel)
-    panzoomInstance.setOptions({ minScale, animate: true });
-
-    // 5) Transform ANSCHLIESSEND setzen (nächster Frame → Maße sind stabil)
-    requestAnimationFrame(() => {
-      if (targetTf) {
-        panzoomInstance.setTransform(targetTf);
-      } else {
-        panzoomInstance.setTransform(fit);
-        if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
-      }
-    });
-
-    // 6) Highlight & State merken
-    if (id) {
-      lastFocusId = id;
-      highlightPin && highlightPin(id);
-      // Debug-Ausgabe (optional)
-      if (targetTf) {
-        console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
-      }
-    }
+if (!panzoomInstance) {
+  panzoomInstance = Panzoom(mapEl, {
+    maxScale: 4,
+    contain: 'outside',
+    startScale: fit.scale,
+    startX: fit.x,
+    startY: fit.y,
+    animate: true
   });
+  console.log('[MAP] panzoom init', panzoomInstance.getTransform()); // <— NEU
+  wrapEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    panzoomInstance.zoomWithWheel(e);
+  }, { passive: false });
+} else {
+  console.log('[MAP] panzoom reuse', panzoomInstance.getTransform()); // <— NEU
 }
+
+// minScale immer aktualisieren (z. B. nach Größenwechsel)
+panzoomInstance.setOptions({ minScale, animate: true });
+
+/* === DEBUG STEP 3: Nudge-Test – erzwingt sichtbare Bewegung ===
+   Wenn Panzoom korrekt greift, sollte die Karte minimal „zucken“
+   (1px hin & zurück). In der Konsole erscheint der Log-Eintrag. */
+const tFit = computeFit(START_X_PERCENT);
+panzoomInstance.setTransform({ x: tFit.x + 1, y: tFit.y + 1, scale: tFit.scale });
+panzoomInstance.setTransform(tFit);
+console.log('[MAP] nudge+fit applied');
+
+// 5) Transform ANSCHLIESSEND setzen (nächster Frame → Maße sind stabil)
+requestAnimationFrame(() => {
+  if (targetTf) {
+    panzoomInstance.setTransform(targetTf);
+  } else {
+    panzoomInstance.setTransform(fit);
+    if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+  }
+});
+  }
 
 
   /* ====== LISTE & DATEN ====== */
@@ -640,6 +641,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
