@@ -455,6 +455,32 @@ function showMap(focusId = null) {
         startY: fit.y,
         animate: true
       });
+      // --- Polyfill: setTransform, getTransform, setOptions (falls in deiner Version nicht vorhanden)
+if (panzoomInstance && typeof panzoomInstance.setTransform !== 'function') {
+  panzoomInstance.setTransform = function ({ x=0, y=0, scale=1 } = {}, opts = {}) {
+    // Wichtig: erst zoomen, dann pannen (contain/bounds)
+    if (typeof panzoomInstance.zoom === 'function') {
+      panzoomInstance.zoom(scale, opts);
+    }
+    if (typeof panzoomInstance.pan === 'function') {
+      panzoomInstance.pan(x, y, opts);
+    }
+  };
+}
+if (panzoomInstance && typeof panzoomInstance.getTransform !== 'function') {
+  panzoomInstance.getTransform = function () {
+    const s = (typeof panzoomInstance.getScale === 'function') ? panzoomInstance.getScale() : 1;
+    const p = (typeof panzoomInstance.getPan   === 'function') ? panzoomInstance.getPan()   : { x: 0, y: 0 };
+    return { x: p.x, y: p.y, scale: s };
+  };
+}
+if (panzoomInstance && typeof panzoomInstance.setOptions !== 'function') {
+  panzoomInstance.setOptions = function (opts) {
+    // manche Builds haben 'setOptions', andere 'setOptions' nicht -> dann ignorieren
+    // no-op fallback, damit Aufrufe nicht crashen
+  };
+}
+
 console.log('[MAP] panzoom init', _getTf && _getTf());
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
@@ -757,6 +783,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
