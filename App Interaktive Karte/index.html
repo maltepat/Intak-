@@ -114,7 +114,7 @@
 
     body.fullscreen-map { overflow:hidden; }
 
-    body.fullscreen-map .mapwrap {
+    body.fullscreen-map . {
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -267,6 +267,7 @@
     <img src="icons/BistroIcon.png" alt="Bistro"/>
   </div>
 </div>
+</div>
 
 
   <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
@@ -410,7 +411,7 @@ function showMap(focusId = null) {
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobil: in Vollbild wechseln und Höhe korrekt setzen
+  // Mobil: Vollbild & Höhe
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -421,59 +422,64 @@ function showMap(focusId = null) {
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // 1) Basis-Fit bestimmen → definiert minScale
+    // 1) Fit & minScale
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
 
-    // 2) Ziel-ID bestimmen & auflösen (Aliasse)
+    // 2) ID ermitteln
     const rawId = focusId || lastFocusId || null;
     const id = resolveId ? resolveId(rawId) : rawId;
 
-    // 3) Ziel-Transform vorbereiten (Zoom leicht > minScale, damit der Fokus sichtbar ist)
+    // 3) Ziel-Transform
     const TARGET_SCALE = 2.5;
     const targetScale = Math.max(minScale, TARGET_SCALE);
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
-    // 4) Panzoom initialisieren (einmalig) oder updaten
-if (!panzoomInstance) {
-  panzoomInstance = Panzoom(mapEl, {
-    maxScale: 4,
-    contain: 'outside',
-    startScale: fit.scale,
-    startX: fit.x,
-    startY: fit.y,
-    animate: true
-  });
-  console.log('[MAP] panzoom init', panzoomInstance.getTransform()); // <— NEU
-  wrapEl.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    panzoomInstance.zoomWithWheel(e);
-  }, { passive: false });
-} else {
-  console.log('[MAP] panzoom reuse', panzoomInstance.getTransform()); // <— NEU
-}
+    // 4) Panzoom init/reuse
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true
+      });
+      console.log('[MAP] panzoom init', panzoomInstance.getTransform());
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+      }, { passive: false });
+    } else {
+      console.log('[MAP] panzoom reuse', panzoomInstance.getTransform());
+    }
 
-// minScale immer aktualisieren (z. B. nach Größenwechsel)
-panzoomInstance.setOptions({ minScale, animate: true });
+    // 5) Optionen + Nudge-Test
+    panzoomInstance.setOptions({ minScale, animate: true });
 
-/* === DEBUG STEP 3: Nudge-Test – erzwingt sichtbare Bewegung ===
-   Wenn Panzoom korrekt greift, sollte die Karte minimal „zucken“
-   (1px hin & zurück). In der Konsole erscheint der Log-Eintrag. */
-const tFit = computeFit(START_X_PERCENT);
-panzoomInstance.setTransform({ x: tFit.x + 1, y: tFit.y + 1, scale: tFit.scale });
-panzoomInstance.setTransform(tFit);
-console.log('[MAP] nudge+fit applied');
+    const tFit = computeFit(START_X_PERCENT);
+    panzoomInstance.setTransform({ x: tFit.x + 1, y: tFit.y + 1, scale: tFit.scale });
+    panzoomInstance.setTransform(tFit);
+    console.log('[MAP] nudge+fit applied');
 
-// 5) Transform ANSCHLIESSEND setzen (nächster Frame → Maße sind stabil)
-requestAnimationFrame(() => {
-  if (targetTf) {
-    panzoomInstance.setTransform(targetTf);
-  } else {
-    panzoomInstance.setTransform(fit);
-    if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
-  }
-});
-  }
+    // 6) Ziel setzen (nächster Frame)
+    requestAnimationFrame(() => {
+      if (targetTf) {
+        panzoomInstance.setTransform(targetTf);
+        console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
+      } else {
+        panzoomInstance.setTransform(fit);
+        if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+      }
+    });
+
+    // 7) Highlight/State
+    if (id) {
+      lastFocusId = id;
+      highlightPin && highlightPin(id);
+    }
+  }); // ⬅️ schließt waitForImage Callback
+} // ⬅️ schließt showMap
 
 
   /* ====== LISTE & DATEN ====== */
@@ -641,6 +647,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
