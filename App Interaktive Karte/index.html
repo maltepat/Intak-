@@ -381,34 +381,22 @@ function computeTransformForPin(id, scale = 2.5) {
   const viewCx = rect.width  / 2;
   const viewCy = rect.height / 2;
 
-  // Ziel-Translation (ohne Klammern): Pin soll im Viewport-Zentrum landen
   const desiredX = viewCx - c.cx * scale;
   const desiredY = viewCy - c.cy * scale;
 
-  // Erlaube ein wenig "über den Rand" (Bleed) – SYMMETRISCH!
-  const BLEED = 200; // 100–300 sind gute Startwerte
+  const BLEED = 200;
+  const minX = rect.width  - MAP_W * scale - BLEED;
+  const minY = rect.height - MAP_H * scale - BLEED;
+  const maxX = +BLEED;
+  const maxY = +BLEED;
 
-  // WICHTIG: Vorzeichen korrekt!
-  const minX = rect.width  - MAP_W * scale - BLEED; // weiter nach links (negativer)
-  const minY = rect.height - MAP_H * scale - BLEED; // weiter nach oben  (negativer)
-  const maxX = +BLEED;                               // auch etwas nach rechts (positiver)
-  const maxY = +BLEED;                               // auch etwas nach unten  (positiver)
-
-  // Klammern anwenden
   const x = Math.min(maxX, Math.max(minX, desiredX));
   const y = Math.min(maxY, Math.max(minY, desiredY));
 
-  // Optionales Debug – super hilfreich
-  console.log('[TF]', {
-    id, scale,
-    cx: c.cx, cy: c.cy,
-    desiredX, desiredY,
-    minX, maxX, minY, maxY,
-    x, y
-  });
-
+  // console.log('[TF]', { id, scale, cx:c.cx, cy:c.cy, desiredX, desiredY, minX, maxX, minY, maxY, x, y });
   return { x, y, scale };
 }
+
 
 
 
@@ -492,15 +480,15 @@ function showMap(focusId = null) {
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
     // 4) Panzoom initialisieren (einmal) oder wiederverwenden
-    if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        maxScale: 4,
-        contain: 'none',
-        startScale: fit.scale,
-        startX: fit.x,
-        startY: fit.y,
-        animate: true
-      });
+panzoomInstance = Panzoom(mapEl, {
+-  contain: 'outside',
++  contain: 'none',
+   maxScale: 4,
+   startScale: fit.scale,
+   startX: fit.x,
+   startY: fit.y,
+   animate: true
+});
 
       // Wheel-Zoom (nur Desktop)
       wrapEl.addEventListener('wheel', (e) => {
@@ -775,28 +763,34 @@ function renderList(areaIds){
   /* ====== Pin-Fokus ====== */
 
 
-// Mittelpunkt eines Pins in Kartenkoordinaten berechnen
 function getPinCenter(id) {
-  const el = document.getElementById(`pin-${id}`);
+  const el  = document.getElementById(`pin-${id}`);
   if (!el) return null;
 
-  // Koordinaten aus den Datenattributen lesen
-  let xPct = parseFloat(el.dataset.x);
-  let yPct = parseFloat(el.dataset.y);
-  let wPct = parseFloat(el.dataset.wp);
+  const img = el.querySelector('img');
 
-  // Falls data-wp nicht gesetzt: Standardbreite 3.05% (wie deine Icons bisher)
-  if (Number.isNaN(wPct)) wPct = 3.05;
+  // Position der Pin-Box relativ zur Karte (Pixel, ohne Transform)
+  const baseLeft = el.offsetLeft;
+  const baseTop  = el.offsetTop;
 
-  // Umrechnung in Pixel-Koordinaten (auf Basis deiner MAP_W / MAP_H)
-  const wPx = (wPct / 100) * MAP_W;
-  const hPx = wPx * 0.70; // Höhe = ca. 70% der Breite
+  // Falls ein Bild existiert, nimm exakt dessen Mitte.
+  // (img.offsetLeft/Top sind relativ zur Pin-Box.)
+  let cx, cy;
+  if (img) {
+    cx = baseLeft + img.offsetLeft + img.offsetWidth  / 2;
+    cy = baseTop  + img.offsetTop  + img.offsetHeight / 2;
+  } else {
+    // Fallback: Mitte der Box
+    cx = baseLeft + el.offsetWidth  / 2;
+    cy = baseTop  + el.offsetHeight / 2;
+  }
 
-  const cx = (xPct / 100) * MAP_W + wPx / 2;
-  const cy = (yPct / 100) * MAP_H + hPx / 2;
+  // Debug hilft beim Gegencheck
+  // console.log('[CENTER]', id, { baseLeft, baseTop, imgW: img?.offsetWidth, imgH: img?.offsetHeight, cx, cy });
 
   return { cx, cy };
 }
+
 
 
   /* ====== Start ====== */
@@ -805,6 +799,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
