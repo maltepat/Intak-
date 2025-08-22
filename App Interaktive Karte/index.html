@@ -288,6 +288,7 @@
 <script src="translations.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
 <script>
+</script>
 
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
@@ -409,84 +410,89 @@ function getFocusFromURL() {
 }
   
 function showMap(focusId = null) {
-  try {
-    // Tabs & Sichtbarkeit
-    document.getElementById('tab-map').classList.add('active');
-    document.getElementById('tab-list').classList.remove('active');
-    wrapEl.classList.add('active');
-    document.getElementById('list').style.display = 'none';
+  // Tabs & Sichtbarkeit
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-    // Mobil: Vollbild & Höhe
-    if (isMobile()) {
-      enterMapFullscreen();
-      setFullscreenVH();
-      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      enableVHWatchers();
+  // Mobil: Vollbild & Höhe
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
+  }
+
+  const mapImgEl = document.querySelector('.map-img');
+
+  waitForImage(mapImgEl, () => {
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
+
+    // Ziel-ID (mit Alias-Auflösung)
+    const rawId = focusId || lastFocusId || null;
+    const id = resolveId ? resolveId(rawId) : rawId;
+
+    // 1) Panzoom einmalig initialisieren
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        // Animation global aktivieren (kann pro-call überschrieben werden)
+        animate: true,
+        duration: 350,              // sanfter
+        easing: 'ease-in-out'
+      });
+      // Wheel-Zoom (Desktop)
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+      }, { passive: false });
     }
 
-    const mapImgEl = document.querySelector('.map-img');
+    // minScale (nach evtl. Größenwechsel)
+    panzoomInstance.setOptions({ minScale, animate: true, duration: 350 });
 
-    waitForImage(mapImgEl, () => {
-      if (typeof Panzoom !== 'function') {
-        console.error('❌ Panzoom nicht geladen');
-        return;
-      }
+    // 2) Ziel-Transform berechnen
+    let targetTf = null;
+    if (id) {
+      const TARGET_SCALE = 2.5;
+      const targetScale = Math.max(minScale, TARGET_SCALE);
+      targetTf = computeTransformForPin(id, targetScale);
+    }
 
-      const fit = computeFit(START_X_PERCENT);
-      const minScale = fit.scale;
+    // 3) Animations-Sequenz
+    if (targetTf) {
+      const { scale, x, y } = targetTf;
 
-      const rawId = focusId || lastFocusId || null;
-      const id = resolveId ? resolveId(rawId) : rawId;
-      console.log('[MAP] showMap()', { rawId, id, fit, minScale });
+      // a) Erst ZOOM (animiert)
+      panzoomInstance.zoom(scale, { animate: true });
 
-      // Init einmalig
-      if (!panzoomInstance) {
-        panzoomInstance = Panzoom(mapEl, {
-          maxScale: 4,
-          contain: 'outside',
-          startScale: fit.scale,
-          startX: fit.x,
-          startY: fit.y
-        });
-        wrapEl.addEventListener('wheel', (e) => { e.preventDefault(); panzoomInstance.zoomWithWheel(e); }, { passive: false });
-        console.log('[MAP] panzoom init', panzoomInstance.getTransform());
-      } else {
-        console.log('[MAP] panzoom reuse', panzoomInstance.getTransform());
-      }
+      // b) Dann im nächsten Tick PAN (animiert)
+      //    (wegen contain/Bounds erst nach Paint korrekt)
+      setTimeout(() => {
+        panzoomInstance.pan(x, y, { animate: true, /*force: true*/ });
+      }, 0);
 
-      panzoomInstance.setOptions({ minScale, animate: false });
-
-      // --- Harte Diagnose: Nudge, damit wir Bewegung sehen ---
-      const nudge = { x: fit.x + 1, y: fit.y + 1, scale: fit.scale };
-      panzoomInstance.setTransform(nudge);
-      panzoomInstance.setTransform(fit);
-      console.log('[MAP] nudge+fit applied');
-
-      if (!id) {
-        panzoomInstance.setTransform(fit);
-        console.log('[MAP] no id → fit');
-        return;
-      }
-
-      // Ziel berechnen
-      const tf = computeTransformForPin(id, Math.max(2.5, minScale));
-      console.log('[MAP] target transform', id, tf);
-
-      if (!tf) {
-        console.warn('⚠️ computeTransformForPin liefert null für', id);
-        panzoomInstance.setTransform(fit);
-        return;
-      }
-
-      // Jetzt HART setzen (ohne Animation) – damit es auf jeden Fall sichtbar ist
-      panzoomInstance.setTransform(tf);
       lastFocusId = id;
       highlightPin && highlightPin(id);
-      console.log('✅ jumped to', id, tf);
-    });
-  } catch (err) {
-    console.error('❌ showMap error', err);
-  }
+
+      // Debug
+      console.log(`🔍 Focus ${id} → scale:${scale.toFixed(2)} x:${x.toFixed(1)} y:${y.toFixed(1)}`);
+    } else {
+      // Kein Ziel → sauber auf Fit zurück (animiert)
+      // Tipp: reset() animiert per Default
+      panzoomInstance.reset({ animate: true }); // setzt auf startX/Y/Scale zurück
+      // Oder: pan + zoom auf Fit manuell:
+      // panzoomInstance.zoom(fit.scale, { animate: true });
+      // setTimeout(() => panzoomInstance.pan(fit.x, fit.y, { animate: true }), 0);
+      if (id) console.warn('⚠️ Pin nicht gefunden oder ohne Koordinaten:', id);
+    }
+  });
 }
 
 
@@ -626,38 +632,26 @@ function renderList(areaIds){
   /* ====== Pin-Fokus ====== */
 
 
+// Mittelpunkt eines Pins in Kartenkoordinaten berechnen
 function getPinCenter(id) {
   const el = document.getElementById(`pin-${id}`);
-  if (!el) { console.warn('❌ pin nicht gefunden:', id); return null; }
+  if (!el) return null;
 
-  // 1) Datenattribute
+  // Koordinaten aus den Datenattributen lesen
   let xPct = parseFloat(el.dataset.x);
   let yPct = parseFloat(el.dataset.y);
+  let wPct = parseFloat(el.dataset.wp);
 
-  // 2) Fallback: inline styles (in %)
-  if (Number.isNaN(xPct) || Number.isNaN(yPct)) {
-    const ls = el.style.left?.trim() || '';
-    const ts = el.style.top?.trim()  || '';
-    xPct = parseFloat(ls.replace('%',''));
-    yPct = parseFloat(ts.replace('%',''));
-  }
+  // Falls data-wp nicht gesetzt: Standardbreite 3.05% (wie deine Icons bisher)
+  if (Number.isNaN(wPct)) wPct = 3.05;
 
-  if (Number.isNaN(xPct) || Number.isNaN(yPct)) {
-    console.warn('❌ keine gültigen Koordinaten für', id, { xPct, yPct, el });
-    return null;
-  }
+  // Umrechnung in Pixel-Koordinaten (auf Basis deiner MAP_W / MAP_H)
+  const wPx = (wPct / 100) * MAP_W;
+  const hPx = wPx * 0.70; // Höhe = ca. 70% der Breite
 
-  // reale Pin-Größe (vor Transform)
-  const wPx = el.offsetWidth  || (MAP_W * 0.0305); // Fallback: 3.05% von MAP_W
-  const hPx = el.offsetHeight || wPx * 0.70;
+  const cx = (xPct / 100) * MAP_W + wPx / 2;
+  const cy = (yPct / 100) * MAP_H + hPx / 2;
 
-  // Mittelpunkt in Kartenkoordinaten
-  const baseX = (xPct / 100) * MAP_W;
-  const baseY = (yPct / 100) * MAP_H;
-  const cx = baseX + wPx / 2;
-  const cy = baseY + hPx / 2;
-
-  console.log('[MAP] getPinCenter', { id, xPct, yPct, wPx, hPx, cx, cy });
   return { cx, cy };
 }
 
@@ -668,10 +662,6 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
-
-
-
-
 
 
 
