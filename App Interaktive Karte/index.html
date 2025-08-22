@@ -281,7 +281,7 @@
   </div>
 
 <script src="translations.js"></script>
-<script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
+<script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 <script>
   console.log('[MAP] boot');                    // <— kleiner Rauchtest
 
@@ -368,6 +368,16 @@ function computeTransformForPin(id, scale = 2) {
   return { x, y, scale };
 }
 
+function _getTf() {
+  if (!panzoomInstance) return null;
+  if (typeof panzoomInstance.getTransform === 'function') {
+    return panzoomInstance.getTransform();
+  }
+  // Fallback für andere Panzoom-Varianten:
+  const scale = typeof panzoomInstance.getScale === 'function' ? panzoomInstance.getScale() : 1;
+  const pan   = typeof panzoomInstance.getPan   === 'function' ? panzoomInstance.getPan()   : { x: 0, y: 0 };
+  return { x: pan.x, y: pan.y, scale };
+}
 
 
   function fitAndCenter(xPercent = START_X_PERCENT) {
@@ -445,13 +455,13 @@ function showMap(focusId = null) {
         startY: fit.y,
         animate: true
       });
-      console.log('[MAP] panzoom init', panzoomInstance.getTransform());
+console.log('[MAP] panzoom init', _getTf && _getTf());
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
     } else {
-      console.log('[MAP] panzoom reuse', panzoomInstance.getTransform());
+console.log('[MAP] panzoom reuse', _getTf && _getTf());
     }
 
     // 5) Optionen + Nudge-Test
@@ -747,6 +757,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
