@@ -533,6 +533,106 @@ function resolveId(id) {
 }
 
 
+// ===== DEBUG-HARNESS: Panzoom Tests =====
+window.__mapTest = {
+  check() {
+    const okLib = typeof Panzoom === 'function';
+    const okWrap = !!wrapEl && wrapEl.getBoundingClientRect();
+    const okMap  = !!mapEl && mapEl.getBoundingClientRect();
+    const img    = document.querySelector('.map-img');
+    const cs     = mapEl ? getComputedStyle(mapEl).transform : 'n/a';
+    console.log('[CHECK]', {
+      panzoomLoaded: okLib,
+      wrapSize: okWrap ? wrapEl.getBoundingClientRect() : null,
+      mapSize:  okMap  ? mapEl.getBoundingClientRect()  : null,
+      imgComplete: !!img?.complete,
+      cssTransformOnMap: cs
+    });
+  },
+
+  init() {
+    const fit = computeFit(START_X_PERCENT);
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
+      console.log('[INIT] panzoom created →', panzoomInstance.getTransform());
+      wrapEl.addEventListener('wheel', (e) => { e.preventDefault(); panzoomInstance.zoomWithWheel(e); }, { passive: false });
+    } else {
+      console.log('[INIT] reuse →', panzoomInstance.getTransform());
+    }
+    panzoomInstance.setOptions({ minScale: fit.scale });
+    // auf Fit setzen
+    panzoomInstance.setTransform(fit);
+    return panzoomInstance.getTransform();
+  },
+
+  nudge() {
+    const fit = computeFit(START_X_PERCENT);
+    panzoomInstance.setOptions({ animate: false });
+    panzoomInstance.setTransform({ x: fit.x + 1, y: fit.y + 1, scale: fit.scale });
+    panzoomInstance.setTransform(fit);
+    console.log('[NUDGE] applied');
+    return panzoomInstance.getTransform();
+  },
+
+  fit() {
+    const fit = computeFit(START_X_PERCENT);
+    panzoomInstance.setTransform(fit);
+    console.log('[FIT] →', fit);
+    return fit;
+  },
+
+  zoomCenter(scale = 2.5) {
+    const rect = wrapEl.getBoundingClientRect();
+    const x = rect.width  / 2 - (MAP_W * 0.5) * scale;
+    const y = rect.height / 2 - (MAP_H * 0.5) * scale;
+    panzoomInstance.setTransform({ x, y, scale });
+    console.log('[ZOOM CENTER]', { x, y, scale });
+    return panzoomInstance.getTransform();
+  },
+
+  focus(id, scale = 2.5) {
+    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
+    console.log('[FOCUS]', id, tf);
+    if (tf) {
+      panzoomInstance.setTransform(tf);
+      highlightPin && highlightPin(id);
+    } else {
+      console.warn('[FOCUS] kein Transform für', id);
+    }
+    return panzoomInstance?.getTransform();
+  },
+
+  animTo(target, duration = 400) {
+    const start = panzoomInstance.getTransform();
+    const t0 = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const k = 0.5 - 0.5 * Math.cos(Math.PI * t);
+      panzoomInstance.setTransform({
+        x: start.x + (target.x - start.x) * k,
+        y: start.y + (target.y - start.y) * k,
+        scale: start.scale + (target.scale - start.scale) * k,
+      });
+      if (t < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  },
+
+  animFocus(id, scale = 2.5, duration = 400) {
+    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
+    console.log('[ANIM FOCUS]', id, tf);
+    if (tf) this.animTo(tf, duration);
+  }
+};
 
   function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
@@ -647,6 +747,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
