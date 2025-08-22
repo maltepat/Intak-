@@ -468,55 +468,71 @@ function showMap(focusId = null) {
     // 1) Fit & minScale
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
-    currentMinScale = minScale; // <— wir merken uns minScale selbst
 
     // 2) Ziel-ID ermitteln (mit Alias-Auflösung)
     const rawId = focusId || lastFocusId || null;
     const id = resolveId ? resolveId(rawId) : rawId;
 
-    // 3) Ziel-Transform berechnen (leicht größer als Fit)
-    const TARGET_SCALE = 2.5;
+    // 3) Ziel-Transform berechnen (Zoom leicht > Fit)
+    const TARGET_SCALE = 1.8;               // 👈 HIER stellst du die gewünschte Zoomstärke ein
     const targetScale = Math.max(minScale, TARGET_SCALE);
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
-    // 4) Panzoom initialisieren (einmal) oder wiederverwenden
-panzoomInstance = Panzoom(mapEl, {
-   contain: 'none',
-   maxScale: 2,
-   startScale: fit.scale,
-   startX: fit.x,
-   startY: fit.y,
-   animate: true
-});
+    // 4) Panzoom EINMAL initialisieren, sonst wiederverwenden
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        contain: 'none',                    // wichtig: nicht 'outside', damit Fokus nicht weggeschnitten wird
+        maxScale: 3,                        // optional: Obergrenze (kannst du anpassen)
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true
+      });
 
-      // Wheel-Zoom (nur Desktop)
+      // Mausrad-Zoom (Desktop)
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
-        if (typeof panzoomInstance.zoomWithWheel === 'function') {
-          panzoomInstance.zoomWithWheel(e);
-        }
+        panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
-    
+    }
 
-    // 5) Optionen sicher setzen + kleiner „Nudge“ (sichtbarer Beweis)
-    setOptsSafe({ minScale: minScale, animate: true });
+    // 5) minScale updaten + animiert auf Ziel gehen
+    if (typeof panzoomInstance.setOptions === 'function') {
+      panzoomInstance.setOptions({ minScale, animate: true });
+    }
 
-    const tFit = computeFit(START_X_PERCENT);
-    // Mini-Zucken: 1px hin & zurück (ohne Animation), zeigt: applyTransform funktioniert
-    applyTransform({ x: tFit.x + 1, y: tFit.y + 1, scale: tFit.scale }, false);
-    applyTransform(tFit, false);
-    console.log('[MAP] nudge+fit applied');
+    // Sanfte Animation: von Ist → Ziel
+    function animTo(target, duration = 350) {
+      const start = panzoomInstance.getTransform
+        ? panzoomInstance.getTransform()
+        : { x: 0, y: 0, scale: minScale };
 
-    // 6) Ziel animiert setzen (im nächsten Frame)
-    requestAnimationFrame(() => {
-      if (targetTf) {
-        applyTransform(targetTf, true); // <— statt setTransform
-        console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
-      } else {
-        applyTransform(fit, true);      // <— statt setTransform
-        if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+      const t0 = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - t0) / duration);
+        const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
+        const x = start.x + (target.x - start.x) * k;
+        const y = start.y + (target.y - start.y) * k;
+        const s = start.scale + (target.scale - start.scale) * k;
+        panzoomInstance.setTransform({ x, y, scale: s });
+        if (t < 1) requestAnimationFrame(tick);
       }
-    });
+      requestAnimationFrame(tick);
+    }
+
+    // 6) Anwenden (mit Fallback: Fit)
+    if (targetTf) {
+      animTo(targetTf, 350);
+      lastFocusId = id;
+      if (typeof highlightPin === 'function') highlightPin(id);
+      console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
+    } else {
+      animTo(fit, 300);
+      if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+    }
+  });
+}
+
 
     // 7) Highlight & State
     if (id) {
@@ -798,6 +814,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
