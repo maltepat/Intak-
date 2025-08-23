@@ -822,11 +822,7 @@ function getPinCenter(id) {
   const cy = el.offsetTop  + el.offsetHeight / 2;
   return { cx, cy };
 }
-  // Fallback: Mitte der Pin-Box (falls mal kein data-x/y gesetzt ist)
-  const cx = el.offsetLeft + el.offsetWidth  / 2;
-  const cy = el.offsetTop  + el.offsetHeight / 2;
-  return { cx, cy };
-}
+
 
 
   /* ====== Start ====== */
