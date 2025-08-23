@@ -468,18 +468,18 @@ function showMap(focusId = null) {
     // 1) Fit & minScale
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
-    currentMinScale = minScale; // falls du es später brauchst
+    currentMinScale = minScale; // merken für onVVChange()
 
     // 2) Ziel-ID ermitteln (mit Alias-Auflösung)
     const rawId = focusId || lastFocusId || null;
     const id = resolveId ? resolveId(rawId) : rawId;
 
     // 3) Ziel-Transform berechnen (Zoom leicht > Fit)
-    const TARGET_SCALE = 1.8;
+    const TARGET_SCALE = 1.8; // gewünschter Zoom
     const targetScale = Math.max(minScale, TARGET_SCALE);
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
-    // 4) Panzoom EINMAL initialisieren, sonst wiederverwenden
+    // 4) Panzoom EINMAL initialisieren
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
         contain: 'none',
@@ -502,11 +502,16 @@ function showMap(focusId = null) {
       panzoomInstance.setOptions({ minScale, animate: true });
     }
 
-    // Sanfte Animation: von Ist → Ziel
+    // 6) Sanfte Animation mit applyTransform statt setTransform
     function animTo(target, duration = 350) {
       const start = panzoomInstance.getTransform
         ? panzoomInstance.getTransform()
         : { x: 0, y: 0, scale: minScale };
+
+      // während unserer eigenen Animation: interne Animation ausschalten
+      if (typeof panzoomInstance.setOptions === 'function') {
+        panzoomInstance.setOptions({ animate: false });
+      }
 
       const t0 = performance.now();
       function tick(now) {
@@ -515,25 +520,33 @@ function showMap(focusId = null) {
         const x = start.x + (target.x - start.x) * k;
         const y = start.y + (target.y - start.y) * k;
         const s = start.scale + (target.scale - start.scale) * k;
-        panzoomInstance.setTransform({ x, y, scale: s });
-        if (t < 1) requestAnimationFrame(tick);
+
+        // 👉 hier statt setTransform:
+        applyTransform({ x, y, scale: s }, false);
+
+        if (t < 1) {
+          requestAnimationFrame(tick);
+        } else if (typeof panzoomInstance.setOptions === 'function') {
+          panzoomInstance.setOptions({ animate: true });
+        }
       }
       requestAnimationFrame(tick);
     }
 
-    // 6) Anwenden (mit Fallback: Fit)
+    // 7) Anwenden (mit Fallback: Fit)
     if (targetTf) {
       animTo(targetTf, 350);
       lastFocusId = id;
       if (typeof highlightPin === 'function') highlightPin(id);
-      console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
+      console.log(
+        `🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`
+      );
     } else {
       animTo(fit, 300);
       if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
     }
-  }); // ← Ende waitForImage
-} // ← Ende showMap
-
+  }); // Ende waitForImage
+} // Ende showMap
 
 
   /* ====== LISTE & DATEN ====== */
@@ -807,6 +820,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
