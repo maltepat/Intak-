@@ -51,7 +51,7 @@
   height:1080px;
   touch-action:none;
   will-change: transform;
-+ transform-origin: 0 0;   /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
+  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
 }
 
 .map-img {
@@ -853,6 +853,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
