@@ -375,6 +375,71 @@ function onVVChange() {
   }
 }
 
+  function focusPinAccurate(id, scale = 1.8, animate = true) {
+  // 1) Ziel erstmal „theoretisch“ setzen (wie bisher)
+  const c = getPinCenter(id);
+  if (!c || !wrapEl || !panzoomInstance) return;
+
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // transform-origin = 0 0 vorausgesetzt (haben wir gesetzt)
+  const targetX = viewCx - c.cx * scale;
+  const targetY = viewCy - c.cy * scale;
+
+  // interne Animation kurz aus (wir animieren selbst optional)
+  if (panzoomInstance.setOptions) panzoomInstance.setOptions({ animate: false });
+  panzoomInstance.zoom(scale);
+  panzoomInstance.pan(targetX, targetY);
+
+  // 2) Jetzt MESSEN, wo der Pin wirklich gelandet ist
+  const pinEl = document.getElementById('pin-' + id);
+  if (!pinEl) return;
+
+  // Screen-Mitte des Pins
+  const pr = pinEl.getBoundingClientRect();
+  const pinScX = pr.left + pr.width / 2;
+  const pinScY = pr.top  + pr.height / 2;
+
+  // Screen-Mitte des Viewports (absolut)
+  const wr = wrapEl.getBoundingClientRect();
+  const viewScX = wr.left + viewCx;
+  const viewScY = wr.top  + viewCy;
+
+  // 3) Delta bestimmen (wie weit daneben?)
+  const dx = (viewScX - pinScX);
+  const dy = (viewScY - pinScY);
+
+  // 4) Korrektur: aktuellen Pan holen und Delta draufrechnen
+  const t0 = panzoomInstance.getTransform ? panzoomInstance.getTransform() : { x: targetX, y: targetY, scale };
+  const corrected = { x: t0.x + dx, y: t0.y + dy, scale };
+
+  // 5) Anwenden (optional weich)
+  if (animate) {
+    // kleine, eigene Ease-Animation
+    const start = t0;
+    const dur = 220;
+    const tStart = performance.now();
+    const tick = (now) => {
+      const u = Math.min(1, (now - tStart) / dur);
+      const k = 0.5 - 0.5 * Math.cos(Math.PI * u);
+      const x = start.x + (corrected.x - start.x) * k;
+      const y = start.y + (corrected.y - start.y) * k;
+      panzoomInstance.pan(x, y);
+      if (u < 1) requestAnimationFrame(tick);
+      else if (panzoomInstance.setOptions) panzoomInstance.setOptions({ animate: true });
+    };
+    requestAnimationFrame(tick);
+  } else {
+    panzoomInstance.pan(corrected.x, corrected.y);
+    if (panzoomInstance.setOptions) panzoomInstance.setOptions({ animate: true });
+  }
+
+  // optional: Log zur Kontrolle
+  // console.log('focusPinAccurate', { id, scale, targetX, targetY, dx, dy, corrected });
+}
+
   /* ====== Fit-Funktionen ====== */
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
     const rect = wrapEl.getBoundingClientRect();
@@ -856,6 +921,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
