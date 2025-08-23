@@ -68,18 +68,20 @@
 
 .pin {
   position: absolute;
-  /* Entferne die Zentrierung */
-  transform: none;         /* <- wichtig */
-  /* mach die Größe wieder relativ, wenn du das alte Verhalten liebst */
   width: 3.05%;
   height: auto;
   cursor: pointer;
+
+  /* 👇 das zurückholen */
+  transform: translate(-50%, -50%);
+  transform-origin: center center;
 }
 .pin img {
-  width: 70%;
+  width: 100%;
   height: auto;
   pointer-events: none;
 }
+
 
   /* Pin-Highlight */
 .pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
@@ -784,35 +786,16 @@ function renderList(areaIds){
 
   /* ====== Pin-Fokus ====== */
 
-
 function getPinCenter(id) {
-  const el  = document.getElementById(`pin-${id}`);
+  const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
 
-  const img = el.querySelector('img');
-
-  // Position der Pin-Box relativ zur Karte (Pixel, ohne Transform)
-  const baseLeft = el.offsetLeft;
-  const baseTop  = el.offsetTop;
-
-  // Falls ein Bild existiert, nimm exakt dessen Mitte.
-  // (img.offsetLeft/Top sind relativ zur Pin-Box.)
-  let cx, cy;
-  if (img) {
-    cx = baseLeft + img.offsetLeft + img.offsetWidth  / 2;
-    cy = baseTop  + img.offsetTop  + img.offsetHeight / 2;
-  } else {
-    // Fallback: Mitte der Box
-    cx = baseLeft + el.offsetWidth  / 2;
-    cy = baseTop  + el.offsetHeight / 2;
-  }
-
-  // Debug hilft beim Gegencheck
-  // console.log('[CENTER]', id, { baseLeft, baseTop, imgW: img?.offsetWidth, imgH: img?.offsetHeight, cx, cy });
+  // Mitte der Pin-BOX, unabhängig vom img (robust, egal ob img 70% oder 100%)
+  const cx = el.offsetLeft + el.offsetWidth  / 2;
+  const cy = el.offsetTop  + el.offsetHeight / 2;
 
   return { cx, cy };
 }
-
 
 
   /* ====== Start ====== */
@@ -821,6 +804,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
