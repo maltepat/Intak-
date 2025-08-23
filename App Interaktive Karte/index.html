@@ -66,6 +66,12 @@
   pointer-events:none;
 }
 
+.pin {
+  position: absolute;
+  /* deine bisherige Boxgröße in % bleibt gleich */
+  width: 3.05%;
+  height: auto;
+  cursor: pointer;
 
   /* Bild in der Box zentrieren */
   display: flex;
@@ -77,9 +83,11 @@
   transform-origin: center center;
 }
 
-
-.pin { aspect-ratio: 1 / 1; display:flex; align-items:center; justify-content:center; }
-.pin img { width: 70%; height: auto; }
+.pin img {
+  width: 70%;   /* 👈 wieder wie vorher */
+  height: auto;
+  pointer-events: none;
+}
 
 
 
@@ -367,71 +375,6 @@ function onVVChange() {
   }
 }
 
-  function focusPinAccurate(id, scale = 1.8, animate = true) {
-  // 1) Ziel erstmal „theoretisch“ setzen (wie bisher)
-  const c = getPinCenter(id);
-  if (!c || !wrapEl || !panzoomInstance) return;
-
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width / 2;
-  const viewCy = rect.height / 2;
-
-  // transform-origin = 0 0 vorausgesetzt (haben wir gesetzt)
-  const targetX = viewCx - c.cx * scale;
-  const targetY = viewCy - c.cy * scale;
-
-  // interne Animation kurz aus (wir animieren selbst optional)
-  if (panzoomInstance.setOptions) panzoomInstance.setOptions({ animate: false });
-  panzoomInstance.zoom(scale);
-  panzoomInstance.pan(targetX, targetY);
-
-  // 2) Jetzt MESSEN, wo der Pin wirklich gelandet ist
-  const pinEl = document.getElementById('pin-' + id);
-  if (!pinEl) return;
-
-  // Screen-Mitte des Pins
-  const pr = pinEl.getBoundingClientRect();
-  const pinScX = pr.left + pr.width / 2;
-  const pinScY = pr.top  + pr.height / 2;
-
-  // Screen-Mitte des Viewports (absolut)
-  const wr = wrapEl.getBoundingClientRect();
-  const viewScX = wr.left + viewCx;
-  const viewScY = wr.top  + viewCy;
-
-  // 3) Delta bestimmen (wie weit daneben?)
-  const dx = (viewScX - pinScX);
-  const dy = (viewScY - pinScY);
-
-  // 4) Korrektur: aktuellen Pan holen und Delta draufrechnen
-  const t0 = panzoomInstance.getTransform ? panzoomInstance.getTransform() : { x: targetX, y: targetY, scale };
-  const corrected = { x: t0.x + dx, y: t0.y + dy, scale };
-
-  // 5) Anwenden (optional weich)
-  if (animate) {
-    // kleine, eigene Ease-Animation
-    const start = t0;
-    const dur = 220;
-    const tStart = performance.now();
-    const tick = (now) => {
-      const u = Math.min(1, (now - tStart) / dur);
-      const k = 0.5 - 0.5 * Math.cos(Math.PI * u);
-      const x = start.x + (corrected.x - start.x) * k;
-      const y = start.y + (corrected.y - start.y) * k;
-      panzoomInstance.pan(x, y);
-      if (u < 1) requestAnimationFrame(tick);
-      else if (panzoomInstance.setOptions) panzoomInstance.setOptions({ animate: true });
-    };
-    requestAnimationFrame(tick);
-  } else {
-    panzoomInstance.pan(corrected.x, corrected.y);
-    if (panzoomInstance.setOptions) panzoomInstance.setOptions({ animate: true });
-  }
-
-  // optional: Log zur Kontrolle
-  // console.log('focusPinAccurate', { id, scale, targetX, targetY, dx, dy, corrected });
-}
-
   /* ====== Fit-Funktionen ====== */
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
     const rect = wrapEl.getBoundingClientRect();
@@ -442,31 +385,24 @@ function onVVChange() {
   }
 
 function computeTransformForPin(id, scale = 1.8) {
-  const c = getPinCenter(id);
-  if (!c) return null;
+  const c = getPinCenter(id); if (!c) return null;
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width/2, viewCy = rect.height/2;
 
-  const rect   = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width  / 2;
-  const viewCy = rect.height / 2;
-
-  // pan = viewCenter – (mapKoordinate * scale)
   const desiredX = viewCx - c.cx * scale;
   const desiredY = viewCy - c.cy * scale;
 
-  // Clamping, damit die Karte nicht komplett aus dem Viewport gezogen wird
   const BLEED = 24;
   const minX = rect.width  - MAP_W * scale - BLEED;
   const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = +BLEED;
-  const maxY = +BLEED;
+  const maxX = +BLEED, maxY = +BLEED;
 
-  return {
+  return { 
     x: Math.min(maxX, Math.max(minX, desiredX)),
     y: Math.min(maxY, Math.max(minY, desiredY)),
     scale
   };
 }
-
 
 
 
@@ -547,9 +483,6 @@ function showMap(focusId = null) {
 
     // 3) Panzoom EINMAL initialisieren
     if (!panzoomInstance) {
-      // transform-origin sicherstellen (überstimmt alles)
-      mapEl.style.transformOrigin = '0 0';
-
       panzoomInstance = Panzoom(mapEl, {
         contain: 'none',
         maxScale: 4,
@@ -572,50 +505,75 @@ function showMap(focusId = null) {
     }
 
     // 4) minScale aktualisieren (Clamping)
-    panzoomInstance?.setOptions?.({ minScale, animate: true });
-
-    // 5) Anwenden
-    const TARGET_SCALE = 1.8;
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-
-    if (!id) {
-      // Kein Fokus: sanft auf Fit
-      // kleine Eigenanimation, interne Animation temporär aus
-      const start = panzoomInstance.getTransform?.() ?? fit;
-      panzoomInstance?.setOptions?.({ animate: false });
-      const t0 = performance.now(), dur = 300;
-      const tick = now => {
-        const u = Math.min(1, (now - t0) / dur);
-        const k = 0.5 - 0.5 * Math.cos(Math.PI * u);
-        const x = start.x + (fit.x - start.x) * k;
-        const y = start.y + (fit.y - start.y) * k;
-        const s = start.scale + (fit.scale - start.scale) * k;
-        applyTransform({ x, y, scale: s }, false);
-        if (u < 1) requestAnimationFrame(tick);
-        else panzoomInstance?.setOptions?.({ animate: true });
-      };
-      requestAnimationFrame(tick);
-      return;
+    if (typeof panzoomInstance.setOptions === 'function') {
+      panzoomInstance.setOptions({ minScale, animate: true });
     }
 
-    // 6) Fokus: 2x RAF warten (Layout settle), dann accurate fokussieren
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // interne Animation aus, wir steuern
-        panzoomInstance?.setOptions?.({ animate: false });
+    // Helper: sanfte Animation mit applyTransform (kein setTransform)
+    function animTo(target, duration = 350) {
+      const start = panzoomInstance.getTransform
+        ? panzoomInstance.getTransform()
+        : { x: fit.x, y: fit.y, scale: minScale };
 
-        // erster „theoretischer“ Schuss (optional, häufig schon ausreichend)
-        const tf0 = computeTransformForPin(id, targetScale);
-        if (tf0) applyTransform(tf0, false);
+      if (typeof panzoomInstance.setOptions === 'function') {
+        panzoomInstance.setOptions({ animate: false });
+      }
 
-        // danach präzise Korrektur (misst DOM und korrigiert pan)
-        focusPinAccurate(id, targetScale, true);
+      const t0 = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - t0) / duration);
+        const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
+        const x = start.x + (target.x - start.x) * k;
+        const y = start.y + (target.y - start.y) * k;
+        const s = start.scale + (target.scale - start.scale) * k;
+        applyTransform({ x, y, scale: s }, false);
+        if (t < 1) requestAnimationFrame(tick);
+        else if (typeof panzoomInstance.setOptions === 'function') {
+          panzoomInstance.setOptions({ animate: true });
+        }
+      }
+      requestAnimationFrame(tick);
+    }
 
-        lastFocusId = id;
-        if (typeof highlightPin === 'function') highlightPin(id);
-        console.log(`🎯 Focus (accurate) ${id} @ s:${targetScale.toFixed(2)}`);
-      });
-    });
+    // Helper: Fokus-Transform berechnen (nutzt dein getPinCenter)
+    function computeTransformForPin(pinId, scale = 2.0) {
+      const c = (typeof getPinCenter === 'function') ? getPinCenter(pinId) : null;
+      if (!c) return null;
+
+      const rect   = wrapEl.getBoundingClientRect();
+      const viewCx = rect.width  / 2;
+      const viewCy = rect.height / 2;
+
+      const desiredX = viewCx - c.cx * scale;
+      const desiredY = viewCy - c.cy * scale;
+
+      // kleiner Puffer verhindert hartes Clipping
+      const BLEED = 24;
+      const minX = rect.width  - MAP_W * scale - BLEED;
+      const minY = rect.height - MAP_H * scale - BLEED;
+      const maxX = +BLEED;
+      const maxY = +BLEED;
+
+      const x = Math.min(maxX, Math.max(minX, desiredX));
+      const y = Math.min(maxY, Math.max(minY, desiredY));
+      return { x, y, scale };
+    }
+
+    // 5) Ziel bestimmen: leicht über Fit zoomen oder auf Pin fokussieren
+    const TARGET_SCALE = 1.8;
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+
+    // 6) Anwenden (mit Fallback: Fit)
+    if (targetTf) {
+      animTo(targetTf, 350);
+      lastFocusId = id;
+      if (typeof highlightPin === 'function') highlightPin(id);
+      console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
+    } else {
+      animTo(fit, 300);
+      if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+    }
   }); // waitForImage
 }
 
@@ -856,14 +814,32 @@ function renderList(areaIds){
 function getPinCenter(id) {
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
-  // Mitte der absolut positionierten Pin-BOX relativ zur Karte (untransformiert)
-  return {
-    cx: el.offsetLeft + el.offsetWidth  / 2,
-    cy: el.offsetTop  + el.offsetHeight / 2,
-  };
+
+  // robustes Parsen (unterstützt "54,4" u. "54.4")
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+
+  const dx = toNum(el.dataset.x);   // left in %
+  const dy = toNum(el.dataset.y);   // top in %
+  const wp = toNum(el.dataset.wp);  // box-breite in % (von MAP_W)
+
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    // halbe Box-Breite in %-von-MAP_W
+    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+
+    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
+    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
+    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+
+    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+    return { cx, cy };
+  }
+
+  // Fallback, falls mal kein data-x/y gesetzt ist:
+  const cx = el.offsetLeft + el.offsetWidth  / 2;
+  const cy = el.offsetTop  + el.offsetHeight / 2;
+  return { cx, cy };
 }
-
-
 
 
 
@@ -873,11 +849,6 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
-
-
-
-
-
 
 
 
