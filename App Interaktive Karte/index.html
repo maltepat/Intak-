@@ -384,28 +384,24 @@ function onVVChange() {
     return { scale, x, y };
   }
 
-function computeTransformForPin(id, scale = 2.5) {
-  const c = getPinCenter(id);
-  if (!c) return null;
-
-  const rect   = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width  / 2;
-  const viewCy = rect.height / 2;
+function computeTransformForPin(id, scale = 1.8) {
+  const c = getPinCenter(id); if (!c) return null;
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width/2, viewCy = rect.height/2;
 
   const desiredX = viewCx - c.cx * scale;
   const desiredY = viewCy - c.cy * scale;
 
-  const BLEED = 200;
+  const BLEED = 24;
   const minX = rect.width  - MAP_W * scale - BLEED;
   const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = +BLEED;
-  const maxY = +BLEED;
+  const maxX = +BLEED, maxY = +BLEED;
 
-  const x = Math.min(maxX, Math.max(minX, desiredX));
-  const y = Math.min(maxY, Math.max(minY, desiredY));
-
-  // console.log('[TF]', { id, scale, cx:c.cx, cy:c.cy, desiredX, desiredY, minX, maxX, minY, maxY, x, y });
-  return { x, y, scale };
+  return { 
+    x: Math.min(maxX, Math.max(minX, desiredX)),
+    y: Math.min(maxY, Math.max(minY, desiredY)),
+    scale
+  };
 }
 
 
@@ -853,6 +849,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
