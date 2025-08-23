@@ -68,19 +68,27 @@
 
 .pin {
   position: absolute;
+  /* deine bisherige Boxgröße in % bleibt gleich */
   width: 3.05%;
   height: auto;
   cursor: pointer;
 
-  /* 👇 das zurückholen */
-  transform: translate(-50%, -50%);
+  /* Bild in der Box zentrieren */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* weiterhin KEIN translate, weil getPinCenter die Box-Mitte berechnet */
+  transform: none;
   transform-origin: center center;
 }
+
 .pin img {
-  width: 100%;
+  width: 70%;   /* 👈 wieder wie vorher */
   height: auto;
   pointer-events: none;
 }
+
 
 
   /* Pin-Highlight */
@@ -804,6 +812,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
