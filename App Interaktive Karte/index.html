@@ -296,223 +296,166 @@ body.fullscreen-map .mapwrap {
 <script>
   console.log('[MAP] boot');                    // <— kleiner Rauchtest
 
-  /* ====== STATE & SETTINGS ====== */
-let currentLang = 'de';
-let panzoomInstance = null;
-let currentMinScale = 1;
-const MAP_W = 1920, MAP_H = 1080;
-const START_X_PERCENT = 0.5;
-const DEFAULT_SCALE = 1.8;
-const wrapEl = document.getElementById('mapwrap');
-const mapEl  = document.getElementById('map');
-let lastFocusId = null;
-let highlightedPinId = null;
+  <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+  <script>
+    // ===== STATE & SETTINGS =====
+    let panzoomInstance = null;
+    let currentMinScale = 1;
+    let lastFocusId = null;
+    let highlightedPinId = null;
+    const MAP_W = 1920, MAP_H = 1080;
+    const DEFAULT_SCALE = 1.8;
+    const wrapEl = document.getElementById('mapwrap');
+    const mapEl  = document.getElementById('map');
 
-function setOptsSafe(opts = {}) {
-  if (panzoomInstance && typeof panzoomInstance.setOptions === 'function') {
-    panzoomInstance.setOptions(opts);
-  }
-}
-
-function getTfSafe() {
-  if (!panzoomInstance) return null;
-  if (typeof panzoomInstance.getTransform === 'function') {
-    return panzoomInstance.getTransform();
-  }
-  const s = typeof panzoomInstance.getScale === 'function' ? panzoomInstance.getScale() : undefined;
-  const p = typeof panzoomInstance.getPan === 'function' ? panzoomInstance.getPan() : undefined;
-  return (s !== undefined && p) ? { x: p.x, y: p.y, scale: s } : null;
-}
-
-function applyTransform(tf, animate = true) {
-  if (!panzoomInstance || !tf) return;
-  const opts = { animate };
-  if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, opts);
-  if (typeof panzoomInstance.pan === 'function') panzoomInstance.pan(tf.x, tf.y, opts);
-}
-
-// Pin-Mitte berechnen
-function getPinCenter(id) {
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
-  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-  const dx = toNum(el.dataset.x);
-  const dy = toNum(el.dataset.y);
-  const wp = toNum(el.dataset.wp);
-  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    const halfW = Number.isNaN(wp) ? 0 : wp / 2;
-    const halfH = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
-    const cx = ((dx + halfW) / 100) * MAP_W;
-    const cy = ((dy + halfH) / 100) * MAP_H;
-    return { cx, cy };
-  }
-  // Fallback: Mitte des Elements
-  const cx = el.offsetLeft + el.offsetWidth / 2;
-  const cy = el.offsetTop + el.offsetHeight / 2;
-  return { cx, cy };
-}
-
-// Ziel-Transform berechnen
-function computeTransformForPin(id, scale = DEFAULT_SCALE) {
-  const c = getPinCenter(id); if (!c) return null;
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width / 2;
-  const viewCy = rect.height / 2;
-  const desiredX = viewCx - c.cx * scale;
-  const desiredY = viewCy - c.cy * scale;
-  const BLEED = 24;
-  const minX = rect.width  - MAP_W * scale - BLEED;
-  const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = BLEED, maxY = BLEED;
-  return {
-    x: Math.min(maxX, Math.max(minX, desiredX)),
-    y: Math.min(maxY, Math.max(minY, desiredY)),
-    scale
-  };
-}
-
-// Animation für sanften Fokus
-function animateToTransform(tf, duration = 350) {
-  if (!panzoomInstance || !tf) return;
-  const start = panzoomInstance.getTransform
-    ? panzoomInstance.getTransform()
-    : { x: 0, y: 0, scale: 1 };
-  const t0 = performance.now();
-  function tick(now) {
-    const t = Math.min(1, (now - t0) / duration);
-    const k = 0.5 - 0.5 * Math.cos(Math.PI * t);
-    applyTransform({
-      x: start.x + (tf.x - start.x) * k,
-      y: start.y + (tf.y - start.y) * k,
-      scale: start.scale + (tf.scale - start.scale) * k
-    }, false);
-    if (t < 1) requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
-}
-
-// Pin fokussieren und highlighten
-function focusOnPin(id, scale = DEFAULT_SCALE, animate = true) {
-  const tf = computeTransformForPin(id, scale);
-  if (tf && panzoomInstance) {
-    if (animate) {
-      animateToTransform(tf, 350);
-    } else {
-      applyTransform(tf, true);
+    // ===== PANZOOM & FOKUS =====
+    function setOptsSafe(opts = {}) {
+      if (panzoomInstance && typeof panzoomInstance.setOptions === 'function') {
+        panzoomInstance.setOptions(opts);
+      }
     }
-    highlightPin(id);
-    lastFocusId = id;
-  }
-}
 
-// Highlight
-function highlightPin(id) {
-  if (highlightedPinId) {
-    const prev = document.getElementById(`pin-${highlightedPinId}`);
-    if (prev) prev.classList.remove('highlight');
-  }
-  const el = document.getElementById(`pin-${id}`);
-  if (el) {
-    el.classList.add('highlight');
-    highlightedPinId = id;
-  }
-}
+    function applyTransform(tf, animate = true) {
+      if (!panzoomInstance || !tf) return;
+      const opts = { animate };
+      panzoomInstance.zoom(tf.scale, opts);
+      panzoomInstance.pan(tf.x, tf.y, opts);
+    }
 
-// Panzoom initialisieren
-function setupPanzoom() {
-  const rect = wrapEl.getBoundingClientRect();
-  const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
-  const x = rect.width / 2 - (MAP_W * 0.5) * scale;
-  const y = (rect.height - MAP_H * scale) / 2;
-  panzoomInstance = Panzoom(mapEl, {
-    contain: 'none',
-    maxScale: 4,
-    startScale: scale,
-    startX: x,
-    startY: y,
-    animate: true
-  });
-  wrapEl.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    panzoomInstance.zoomWithWheel(e);
-  }, { passive: false });
-  setOptsSafe({ minScale: scale });
-}
+    function getPinCenter(id) {
+      const el = document.getElementById(`pin-${id}`);
+      if (!el) return null;
+      const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+      const dx = toNum(el.dataset.x);
+      const dy = toNum(el.dataset.y);
+      const wp = toNum(el.dataset.wp);
+      if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+        const halfW = Number.isNaN(wp) ? 0 : wp / 2;
+        const halfH = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+        const cx = ((dx + halfW) / 100) * MAP_W;
+        const cy = ((dy + halfH) / 100) * MAP_H;
+        return { cx, cy };
+      }
+      // Fallback: Mitte des Elements
+      const cx = el.offsetLeft + el.offsetWidth / 2;
+      const cy = el.offsetTop + el.offsetHeight / 2;
+      return { cx, cy };
+    }
 
-// Pins klickbar machen
-document.querySelectorAll('.pin').forEach(el => {
-  el.addEventListener('click', () => {
-    const id = el.id.replace('pin-', '');
-    focusOnPin(id, DEFAULT_SCALE, true);
-    // Optional: Sheet öffnen, etc.
-  });
-});
+    function computeTransformForPin(id, scale = DEFAULT_SCALE) {
+      const c = getPinCenter(id); if (!c) return null;
+      const rect = wrapEl.getBoundingClientRect();
+      const viewCx = rect.width / 2;
+      const viewCy = rect.height / 2;
+      const desiredX = viewCx - c.cx * scale;
+      const desiredY = viewCy - c.cy * scale;
+      const BLEED = 24;
+      const minX = rect.width  - MAP_W * scale - BLEED;
+      const minY = rect.height - MAP_H * scale - BLEED;
+      const maxX = BLEED, maxY = BLEED;
+      return {
+        x: Math.min(maxX, Math.max(minX, desiredX)),
+        y: Math.min(maxY, Math.max(minY, desiredY)),
+        scale
+      };
+    }
 
-  window.addEventListener('DOMContentLoaded', () => {
-  render(); // Pins und Liste erzeugen
-  showList(); // Start mit Liste
-  
-  setupPanzoom(); // Panzoom initialisieren, nachdem alles im DOM ist
-  
-  // Pins jetzt selektieren und Listener setzen
-  document.querySelectorAll('.pin').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.id.replace('pin-', '');
-      focusOnPin(id, DEFAULT_SCALE, true);
-      // Optional: Sheet öffnen, etc.
+    function animateToTransform(tf, duration = 350) {
+      if (!panzoomInstance || !tf) return;
+      const start = panzoomInstance.getTransform
+        ? panzoomInstance.getTransform()
+        : { x: 0, y: 0, scale: 1 };
+      const t0 = performance.now();
+      function tick(now) {
+        const t = Math.min(1, (now - t0) / duration);
+        const k = 0.5 - 0.5 * Math.cos(Math.PI * t);
+        applyTransform({
+          x: start.x + (tf.x - start.x) * k,
+          y: start.y + (tf.y - start.y) * k,
+          scale: start.scale + (tf.scale - start.scale) * k
+        }, false);
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    }
+
+    function focusOnPin(id, scale = DEFAULT_SCALE, animate = true) {
+      const tf = computeTransformForPin(id, scale);
+      if (tf && panzoomInstance) {
+        if (animate) {
+          animateToTransform(tf, 350);
+        } else {
+          applyTransform(tf, true);
+        }
+        highlightPin(id);
+        lastFocusId = id;
+      }
+    }
+
+    function highlightPin(id) {
+      if (highlightedPinId) {
+        const prev = document.getElementById(`pin-${highlightedPinId}`);
+        if (prev) prev.classList.remove('highlight');
+      }
+      const el = document.getElementById(`pin-${id}`);
+      if (el) {
+        el.classList.add('highlight');
+        highlightedPinId = id;
+      }
+    }
+
+    function setupPanzoom() {
+      const rect = wrapEl.getBoundingClientRect();
+      const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
+      const x = rect.width / 2 - (MAP_W * 0.5) * scale;
+      const y = (rect.height - MAP_H * scale) / 2;
+      panzoomInstance = Panzoom(mapEl, {
+        contain: 'none',
+        maxScale: 4,
+        startScale: scale,
+        startX: x,
+        startY: y,
+        animate: true
+      });
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e);
+      }, { passive: false });
+      setOptsSafe({ minScale: scale });
+    }
+
+    // ===== INIT & EVENT BINDINGS =====
+    window.addEventListener('DOMContentLoaded', () => {
+      setupPanzoom();
+
+      // Pins klickbar machen
+      document.querySelectorAll('.pin').forEach(el => {
+        el.addEventListener('click', () => {
+          const id = el.id.replace('pin-', '');
+          focusOnPin(id, DEFAULT_SCALE, true);
+          // Optional: Sheet öffnen
+        });
+      });
+
+      // Tab-Wechsel
+      document.getElementById('tab-list').addEventListener('click', () => {
+        document.getElementById('tab-list').classList.add('active');
+        document.getElementById('tab-map').classList.remove('active');
+        document.getElementById('list').style.display = 'block';
+        wrapEl.classList.remove('active');
+      });
+      document.getElementById('tab-map').addEventListener('click', () => {
+        document.getElementById('tab-map').classList.add('active');
+        document.getElementById('tab-list').classList.remove('active');
+        document.getElementById('list').style.display = 'none';
+        wrapEl.classList.add('active');
+      });
+
+      // Exit Fullscreen (nur für mobile)
+      document.getElementById('exitFsBtn').addEventListener('click', () => {
+        document.getElementById('tab-list').click();
+      });
     });
-  });
-});
-</script>
+  </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
