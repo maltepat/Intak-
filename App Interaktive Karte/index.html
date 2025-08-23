@@ -793,10 +793,6 @@ function renderList(areaIds){
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
 
-// EINMAL global definieren – NICHT mehrfach!
-const MAP_W = (typeof MAP_W === 'number') ? MAP_W : 1920;
-
-
 function getPinCenter(id) {
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
@@ -829,6 +825,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
