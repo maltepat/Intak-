@@ -114,7 +114,7 @@
 
     body.fullscreen-map { overflow:hidden; }
 
-    body.fullscreen-map . {
+body.fullscreen-map .mapwrap {
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -468,21 +468,22 @@ function showMap(focusId = null) {
     // 1) Fit & minScale
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
+    currentMinScale = minScale; // falls du es später brauchst
 
     // 2) Ziel-ID ermitteln (mit Alias-Auflösung)
     const rawId = focusId || lastFocusId || null;
     const id = resolveId ? resolveId(rawId) : rawId;
 
     // 3) Ziel-Transform berechnen (Zoom leicht > Fit)
-    const TARGET_SCALE = 1.8;               // 👈 HIER stellst du die gewünschte Zoomstärke ein
+    const TARGET_SCALE = 1.8;
     const targetScale = Math.max(minScale, TARGET_SCALE);
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
     // 4) Panzoom EINMAL initialisieren, sonst wiederverwenden
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
-        contain: 'none',                    // wichtig: nicht 'outside', damit Fokus nicht weggeschnitten wird
-        maxScale: 3,                        // optional: Obergrenze (kannst du anpassen)
+        contain: 'none',
+        maxScale: 3,
         startScale: fit.scale,
         startX: fit.x,
         startY: fit.y,
@@ -496,7 +497,7 @@ function showMap(focusId = null) {
       }, { passive: false });
     }
 
-    // 5) minScale updaten + animiert auf Ziel gehen
+    // 5) minScale updaten
     if (typeof panzoomInstance.setOptions === 'function') {
       panzoomInstance.setOptions({ minScale, animate: true });
     }
@@ -529,14 +530,10 @@ function showMap(focusId = null) {
     } else {
       animTo(fit, 300);
       if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
-
-    // 7) Highlight & State
-    if (id) {
-      lastFocusId = id;
-      if (typeof highlightPin === 'function') highlightPin(id);
     }
-  }); // waitForImage
-}
+  }); // ← Ende waitForImage
+} // ← Ende showMap
+
 
 
   /* ====== LISTE & DATEN ====== */
@@ -810,6 +807,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
