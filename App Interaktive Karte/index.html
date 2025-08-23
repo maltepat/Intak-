@@ -66,12 +66,6 @@
   pointer-events:none;
 }
 
-.pin {
-  position: absolute;
-  /* deine bisherige Boxgröße in % bleibt gleich */
-  width: 3.05%;
-  height: auto;
-  cursor: pointer;
 
   /* Bild in der Box zentrieren */
   display: flex;
@@ -83,11 +77,9 @@
   transform-origin: center center;
 }
 
-.pin img {
-  width: 70%;   /* 👈 wieder wie vorher */
-  height: auto;
-  pointer-events: none;
-}
+
+.pin { aspect-ratio: 1 / 1; display:flex; align-items:center; justify-content:center; }
+.pin img { width: 70%; height: auto; }
 
 
 
@@ -864,8 +856,13 @@ function renderList(areaIds){
 function getPinCenter(id) {
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
-  return { cx: el.offsetLeft + el.offsetWidth/2, cy: el.offsetTop + el.offsetHeight/2 };
+  // Mitte der absolut positionierten Pin-BOX relativ zur Karte (untransformiert)
+  return {
+    cx: el.offsetLeft + el.offsetWidth  / 2,
+    cy: el.offsetTop  + el.offsetHeight / 2,
+  };
 }
+
 
 
 
@@ -876,6 +873,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
