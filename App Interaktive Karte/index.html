@@ -448,20 +448,25 @@ document.querySelectorAll('.pin').forEach(el => {
   });
 });
 
-// Beispiel: "Auf Karte zeigen"-Button
-// btn.onclick = () => { focusOnPin(areaId, DEFAULT_SCALE, true); };
-
-// Panzoom einmal initialisieren nach Laden
-window.addEventListener('DOMContentLoaded', setupPanzoom);
-
-
-
-  /* ====== Start ====== */
-  render();
-  showList(); // immer mit Liste starten
+  window.addEventListener('DOMContentLoaded', () => {
+  render(); // Pins und Liste erzeugen
+  showList(); // Start mit Liste
+  
+  setupPanzoom(); // Panzoom initialisieren, nachdem alles im DOM ist
+  
+  // Pins jetzt selektieren und Listener setzen
+  document.querySelectorAll('.pin').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.id.replace('pin-', '');
+      focusOnPin(id, DEFAULT_SCALE, true);
+      // Optional: Sheet öffnen, etc.
+    });
+  });
+});
 </script>
 </body>
 </html>
+
 
 
 
