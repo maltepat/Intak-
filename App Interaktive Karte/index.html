@@ -385,24 +385,31 @@ function onVVChange() {
   }
 
 function computeTransformForPin(id, scale = 1.8) {
-  const c = getPinCenter(id); if (!c) return null;
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width/2, viewCy = rect.height/2;
+  const c = getPinCenter(id);
+  if (!c) return null;
 
+  const rect   = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width  / 2;
+  const viewCy = rect.height / 2;
+
+  // pan = viewCenter – (mapKoordinate * scale)
   const desiredX = viewCx - c.cx * scale;
   const desiredY = viewCy - c.cy * scale;
 
+  // Clamping, damit die Karte nicht komplett aus dem Viewport gezogen wird
   const BLEED = 24;
   const minX = rect.width  - MAP_W * scale - BLEED;
   const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = +BLEED, maxY = +BLEED;
+  const maxX = +BLEED;
+  const maxY = +BLEED;
 
-  return { 
+  return {
     x: Math.min(maxX, Math.max(minX, desiredX)),
     y: Math.min(maxY, Math.max(minY, desiredY)),
     scale
   };
 }
+
 
 
 
@@ -849,6 +856,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
