@@ -59,12 +59,12 @@
   inset:0;
   width:100%;
   height:100%;
-- object-fit:fill;
-+ object-fit:contain;      /* oder Zeile weglassen; "fill" verzerrt die Karte */
+  object-fit: contain;     
   display:block;
   user-select:none;
   pointer-events:none;
 }
+
 
 .pin {
   position: absolute;
@@ -404,21 +404,6 @@ function computeTransformForPin(id, scale = 1.8) {
   };
 }
 
-
-
-
-function _getTf() {
-  if (!panzoomInstance) return null;
-  if (typeof panzoomInstance.getTransform === 'function') {
-    return panzoomInstance.getTransform();
-  }
-  // Fallback für andere Panzoom-Varianten:
-  const scale = typeof panzoomInstance.getScale === 'function' ? panzoomInstance.getScale() : 1;
-  const pan   = typeof panzoomInstance.getPan   === 'function' ? panzoomInstance.getPan()   : { x: 0, y: 0 };
-  return { x: pan.x, y: pan.y, scale };
-}
-
-
 function fitAndCenter(xPercent = START_X_PERCENT) {
   if (!panzoomInstance) return;
   const { scale, x, y } = computeFit(xPercent);
@@ -461,7 +446,7 @@ function showMap(focusId = null) {
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobil: Vollbild & Höhe
+  // Mobil: Vollbild & Höhe setzen
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -472,7 +457,7 @@ function showMap(focusId = null) {
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // 1) Fit & minScale
+    // 1) Fit & minScale berechnen und merken
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
     currentMinScale = minScale;
@@ -492,32 +477,32 @@ function showMap(focusId = null) {
         animate: true
       });
 
-      // Mausrad-Zoom (Desktop)
+      // Desktop: Mausrad-Zoom
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
 
-      // Für Konsole/Debug global verfügbar machen (optional)
+      // Konsistenter Start-Zustand (wichtig für Mobile-Viewports)
+      applyTransform(fit, false);
+      setOptsSafe({ minScale: fit.scale, animate: true });
+
+      // optional fürs Debuggen
       window.panzoomInstance = panzoomInstance;
       window.wrapEl = wrapEl;
       window.mapEl  = mapEl;
     }
 
-    // 4) minScale aktualisieren (Clamping)
-    if (typeof panzoomInstance.setOptions === 'function') {
-      panzoomInstance.setOptions({ minScale, animate: true });
-    }
+    // 4) minScale nachziehen (falls showMap erneut aufgerufen wird)
+    setOptsSafe({ minScale, animate: true });
 
-    // Helper: sanfte Animation mit applyTransform (kein setTransform)
+    // 5) Sanfte Animation (nutzt applyTransform → erst zoom, dann pan)
     function animTo(target, duration = 350) {
-      const start = panzoomInstance.getTransform
+      const start = (typeof panzoomInstance.getTransform === 'function')
         ? panzoomInstance.getTransform()
         : { x: fit.x, y: fit.y, scale: minScale };
 
-      if (typeof panzoomInstance.setOptions === 'function') {
-        panzoomInstance.setOptions({ animate: false });
-      }
+      setOptsSafe({ animate: false });
 
       const t0 = performance.now();
       function tick(now) {
@@ -528,43 +513,17 @@ function showMap(focusId = null) {
         const s = start.scale + (target.scale - start.scale) * k;
         applyTransform({ x, y, scale: s }, false);
         if (t < 1) requestAnimationFrame(tick);
-        else if (typeof panzoomInstance.setOptions === 'function') {
-          panzoomInstance.setOptions({ animate: true });
-        }
+        else setOptsSafe({ animate: true });
       }
       requestAnimationFrame(tick);
     }
 
-    // Helper: Fokus-Transform berechnen (nutzt dein getPinCenter)
-    function computeTransformForPin(pinId, scale = 2.0) {
-      const c = (typeof getPinCenter === 'function') ? getPinCenter(pinId) : null;
-      if (!c) return null;
-
-      const rect   = wrapEl.getBoundingClientRect();
-      const viewCx = rect.width  / 2;
-      const viewCy = rect.height / 2;
-
-      const desiredX = viewCx - c.cx * scale;
-      const desiredY = viewCy - c.cy * scale;
-
-      // kleiner Puffer verhindert hartes Clipping
-      const BLEED = 24;
-      const minX = rect.width  - MAP_W * scale - BLEED;
-      const minY = rect.height - MAP_H * scale - BLEED;
-      const maxX = +BLEED;
-      const maxY = +BLEED;
-
-      const x = Math.min(maxX, Math.max(minX, desiredX));
-      const y = Math.min(maxY, Math.max(minY, desiredY));
-      return { x, y, scale };
-    }
-
-    // 5) Ziel bestimmen: leicht über Fit zoomen oder auf Pin fokussieren
+    // 6) Ziel bestimmen (leicht über Fit zoomen oder auf Pin fokussieren)
     const TARGET_SCALE = 1.8;
     const targetScale = Math.max(minScale, TARGET_SCALE);
     const targetTf = id ? computeTransformForPin(id, targetScale) : null;
 
-    // 6) Anwenden (mit Fallback: Fit)
+    // 7) Anwenden (mit Fallback: Fit)
     if (targetTf) {
       animTo(targetTf, 350);
       lastFocusId = id;
@@ -576,7 +535,6 @@ function showMap(focusId = null) {
     }
   }); // waitForImage
 }
-
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -849,6 +807,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
