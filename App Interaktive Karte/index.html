@@ -673,7 +673,7 @@ animFocus(id, scale = 2.5, duration = 400) {
 }
 
 
-  animTo(target, duration = 400) {
+ function animTo(target, duration = 400) {
     const start = panzoomInstance.getTransform();
     const t0 = performance.now();
     function tick(now) {
@@ -815,6 +815,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
