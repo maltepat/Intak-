@@ -424,23 +424,22 @@ function animTo(target, duration = 350) {
     const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
     return { scale, x, y };
   }
+  
 function computeTransformForPin(id, scale) {
   const center = getPinCenter(id);
   if (!center) return null;
 
-  // Viewport
   const rect = wrapEl.getBoundingClientRect();
   const viewCx = rect.width / 2;
   const viewCy = rect.height / 2;
 
-  // gewünschte Pan-Werte für Centering
+  // Mittelpunkt des Pins ins Zentrum holen
   let x = viewCx - center.cx * scale;
   let y = viewCy - center.cy * scale;
 
-  // Dynamische Sicherheitskante (in px): 12–32 je nach Scale
-  const BLEED = Math.round(12 + (scale - 1) * 10);
+  // nur minimale Sicherheitskante, damit Karte nicht ganz rausfliegt
+  const BLEED = 8;
 
-  // Grenzen so clampen, dass die Karte nicht "wegfliegt"
   const minX = rect.width  - MAP_W * scale - BLEED;
   const minY = rect.height - MAP_H * scale - BLEED;
   const maxX = BLEED;
@@ -858,6 +857,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
