@@ -438,6 +438,29 @@ function getFocusFromURL() {
     return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
   } catch { return null; }
 }
+const TARGET_SCALE = 1.8; // zentral definieren
+
+function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
+
+function logTf(tag, tf){
+  if(!tf) return console.log(tag, '— no tf');
+  console.log(tag, { x: Math.round(tf.x), y: Math.round(tf.y), s: +tf.scale.toFixed(3) });
+}
+
+function debugFocus(id, scale){
+  const r = wrapEl.getBoundingClientRect();
+  const c = getPinCenter(id);
+  const tf = computeTransformForPin(id, scale);
+  console.table({
+    id,
+    view: JSON.stringify(logRect(r)),
+    cx: Math.round(c?.cx ?? -1),
+    cy: Math.round(c?.cy ?? -1),
+    scale: scale,
+    tf_x: Math.round(tf?.x ?? 0),
+    tf_y: Math.round(tf?.y ?? 0)
+  });
+}
   
 function showMap(focusId = null) {
   // Tabs umschalten
@@ -807,6 +830,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
