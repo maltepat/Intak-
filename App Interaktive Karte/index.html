@@ -321,11 +321,39 @@ function getTfSafe() {
 
 function applyTransform(tf, animate = true) {
   if (!panzoomInstance || !tf) return;
-  const opts = { animate };
-  // Reihenfolge ist wichtig: erst zoom, dann pan
-  if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, opts);
-  if (typeof panzoomInstance.pan  === 'function') panzoomInstance.pan(tf.x, tf.y, opts);
+  setOptsSafe({ animate });
+  if (typeof panzoomInstance.setTransform === 'function') {
+    panzoomInstance.setTransform({ x: tf.x, y: tf.y, scale: tf.scale });
+  } else {
+    // Fallback (sollte bei 4.5.1 eigentlich nicht nötig sein)
+    if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, { animate });
+    if (typeof panzoomInstance.pan  === 'function') panzoomInstance.pan(tf.x, tf.y, { animate });
+  }
 }
+
+function animTo(target, duration = 350) {
+  if (!panzoomInstance || !target) return;
+  const start = getTfSafe() || { x: 0, y: 0, scale: currentMinScale };
+
+  setOptsSafe({ animate: false });
+
+  const t0 = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - t0) / duration);
+    const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
+    const x = start.x + (target.x - start.x) * k;
+    const y = start.y + (target.y - start.y) * k;
+    const s = start.scale + (target.scale - start.scale) * k;
+
+    applyTransform({ x, y, scale: s }, false);
+
+    if (t < 1) requestAnimationFrame(tick);
+    else setOptsSafe({ animate: true });
+  }
+  requestAnimationFrame(tick);
+}
+  
+
 
   const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
@@ -360,19 +388,32 @@ function applyTransform(tf, animate = true) {
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
-function onVVChange() {
+
+  function onVVChange() {
   const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   wrapEl.style.height = h + 'px';
   setFullscreenVH();
-  if (panzoomInstance) {
-    requestAnimationFrame(() => {
-      const t = getTfSafe();              // ⬅️ statt panzoomInstance.getTransform()
-      if (!t) return;
-      // ⬅️ statt getOptions(): wir tracken minScale selbst über currentMinScale
-      const min = currentMinScale;
-      if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-    });
-  }
+
+  if (!panzoomInstance) return;
+
+  // Bei starken Änderungen am unteren Ende wieder auf Fit oder letzten Fokus justieren
+  requestAnimationFrame(() => {
+    const min = currentMinScale;
+    const t = getTfSafe();
+    if (!t) return;
+
+    // Wenn wir sehr nahe an minScale sind, frisch fitten
+    if (Math.abs(t.scale - min) < 0.03) {
+      const fit = computeFit(START_X_PERCENT);
+      setOptsSafe({ minScale: fit.scale });
+      currentMinScale = fit.scale;
+
+      const targetScale = Math.max(fit.scale, TARGET_SCALE);
+      const id = lastFocusId || getFocusFromURL();
+      const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
+      applyTransform(tf, false);
+    }
+  });
 }
 
   /* ====== Fit-Funktionen ====== */
@@ -383,26 +424,34 @@ function onVVChange() {
     const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
     return { scale, x, y };
   }
+function computeTransformForPin(id, scale) {
+  const center = getPinCenter(id);
+  if (!center) return null;
 
-function computeTransformForPin(id, scale = 1.8) {
-  const c = getPinCenter(id); if (!c) return null;
+  // Viewport
   const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width/2, viewCy = rect.height/2;
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
 
-  const desiredX = viewCx - c.cx * scale;
-  const desiredY = viewCy - c.cy * scale;
+  // gewünschte Pan-Werte für Centering
+  let x = viewCx - center.cx * scale;
+  let y = viewCy - center.cy * scale;
 
-  const BLEED = 24;
+  // Dynamische Sicherheitskante (in px): 12–32 je nach Scale
+  const BLEED = Math.round(12 + (scale - 1) * 10);
+
+  // Grenzen so clampen, dass die Karte nicht "wegfliegt"
   const minX = rect.width  - MAP_W * scale - BLEED;
   const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = +BLEED, maxY = +BLEED;
+  const maxX = BLEED;
+  const maxY = BLEED;
 
-  return { 
-    x: Math.min(maxX, Math.max(minX, desiredX)),
-    y: Math.min(maxY, Math.max(minY, desiredY)),
-    scale
-  };
+  x = Math.min(maxX, Math.max(minX, x));
+  y = Math.min(maxY, Math.max(minY, y));
+
+  return { x, y, scale };
 }
+
 
 function fitAndCenter(xPercent = START_X_PERCENT) {
   if (!panzoomInstance) return;
@@ -519,42 +568,21 @@ function showMap(focusId = null) {
     // 4) minScale nachziehen (falls showMap erneut aufgerufen wird)
     setOptsSafe({ minScale, animate: true });
 
-    // 5) Sanfte Animation (nutzt applyTransform → erst zoom, dann pan)
-    function animTo(target, duration = 350) {
-      const start = (typeof panzoomInstance.getTransform === 'function')
-        ? panzoomInstance.getTransform()
-        : { x: fit.x, y: fit.y, scale: minScale };
-
-      setOptsSafe({ animate: false });
-
-      const t0 = performance.now();
-      function tick(now) {
-        const t = Math.min(1, (now - t0) / duration);
-        const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
-        const x = start.x + (target.x - start.x) * k;
-        const y = start.y + (target.y - start.y) * k;
-        const s = start.scale + (target.scale - start.scale) * k;
-        applyTransform({ x, y, scale: s }, false);
-        if (t < 1) requestAnimationFrame(tick);
-        else setOptsSafe({ animate: true });
-      }
-      requestAnimationFrame(tick);
-    }
-
-    // 6) Ziel bestimmen (leicht über Fit zoomen oder auf Pin fokussieren)
-    const TARGET_SCALE = 1.8;
+    // 5) Ziel bestimmen (leicht über Fit zoomen oder auf Pin fokussieren)
     const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+    const targetTf = id ? computeTransformForPin(id, targetScale)
+                        : { ...fit, scale: targetScale };
 
-    // 7) Anwenden (mit Fallback: Fit)
-    if (targetTf) {
-      animTo(targetTf, 350);
+    // 6) Anwenden (mit Fallback: Fit)
+    animTo(targetTf || fit, 350);
+
+    // 7) Status/Highlight aktualisieren
+    if (id) {
       lastFocusId = id;
       if (typeof highlightPin === 'function') highlightPin(id);
-      console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
+      console.log(`🔍 Focus ${id} → x:${Math.round((targetTf?.x ?? fit.x))} y:${Math.round((targetTf?.y ?? fit.y))} s:${(targetTf?.scale ?? fit.scale).toFixed(2)}`);
     } else {
-      animTo(fit, 300);
-      if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
+      console.log('[MAP] kein spezifischer Fokus – auf angenehmen Überblick gezoomt.');
     }
   }); // waitForImage
 }
@@ -830,6 +858,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
