@@ -673,28 +673,32 @@ animFocus(id, scale = 2.5, duration = 400) {
 }
 
 
- function animTo(target, duration = 400) {
-    const start = panzoomInstance.getTransform();
-    const t0 = performance.now();
-    function tick(now) {
-      const t = Math.min(1, (now - t0) / duration);
-      const k = 0.5 - 0.5 * Math.cos(Math.PI * t);
-      panzoomInstance.setTransform({
-        x: start.x + (target.x - start.x) * k,
-        y: start.y + (target.y - start.y) * k,
-        scale: start.scale + (target.scale - start.scale) * k,
-      });
-      if (t < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  },
+function animTo(target, duration = 350) {
+  if (!panzoomInstance || !target) return;
 
-  animFocus(id, scale = 2.5, duration = 400) {
-    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
-    console.log('[ANIM FOCUS]', id, tf);
-    if (tf) this.animTo(tf, duration);
+  const start = getTfSafe() || { x: 0, y: 0, scale: 1 };
+  setOptsSafe({ animate: false });
+
+  const t0 = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - t0) / duration);
+    const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
+
+    applyTransform({
+      x: start.x + (target.x - start.x) * k,
+      y: start.y + (target.y - start.y) * k,
+      scale: start.scale + (target.scale - start.scale) * k
+    }, false);
+
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      setOptsSafe({ animate: true });
+    }
   }
-};
+  requestAnimationFrame(tick);
+}
+
 
   function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
@@ -815,6 +819,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
