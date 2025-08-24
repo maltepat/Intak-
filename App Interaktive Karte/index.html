@@ -429,34 +429,46 @@ function computeTransformForPin(id, scale) {
   const c = getPinCenter(id);
   if (!c) return null;
 
-  const rect   = wrapEl.getBoundingClientRect();
+  const rect = wrapEl.getBoundingClientRect();
   const viewCx = rect.width  / 2;
   const viewCy = rect.height / 2;
 
-  // Wunsch: Mittelpunkt des Pins genau ins Viewport‑Zentrum
+  // Wunschposition: Pin-Mittelpunkt exakt ins Zentrum
   let x = viewCx - c.cx * scale;
   let y = viewCy - c.cy * scale;
 
   const mapW = MAP_W * scale;
   const mapH = MAP_H * scale;
 
-  // kleine Sicherheitskante gegen komplettes „Wegfliegen“
+  // kleine Sicherheitskante (optional)
   const BLEED = 8;
 
-  // WICHTIG: beim Fokussieren mehr Spielraum erlauben:
-  // wir erweitern den erlaubten Pan‑Korridor um die halbe Viewport‑Breite/-Höhe.
-  const minX = (rect.width  - mapW - BLEED) - viewCx;   // mehr negativ zulassen
-  const maxX = (BLEED) + viewCx;                        // mehr positiv zulassen
-  const minY = (rect.height - mapH - BLEED) - viewCy;
-  const maxY = (BLEED) + viewCy;
+  // --- X: Bounds berechnen ---
+  let minX, maxX;
+  if (mapW >= rect.width) {
+    // Karte größer → klassisch zwischen (rechts bündig) und (links bündig)
+    minX = rect.width - mapW - BLEED; // maximal nach links verschoben
+    maxX = 0 + BLEED;                 // maximal nach rechts verschoben
+  } else {
+    // Karte kleiner → exakt mittig "einklemmen"
+    const centerX = (rect.width - mapW) / 2;
+    minX = maxX = centerX;            // kein Drift, immer mittig
+  }
+  x = Math.min(maxX, Math.max(minX, x));
 
-  // Nur clampen, wenn Karte größer als der Viewport ist (sonst gar kein Clamp nötig)
-  if (mapW > rect.width)  x = Math.min(maxX, Math.max(minX, x));
-  if (mapH > rect.height) y = Math.min(maxY, Math.max(minY, y));
+  // --- Y: Bounds berechnen ---
+  let minY, maxY;
+  if (mapH >= rect.height) {
+    minY = rect.height - mapH - BLEED;
+    maxY = 0 + BLEED;
+  } else {
+    const centerY = (rect.height - mapH) / 2;
+    minY = maxY = centerY;
+  }
+  y = Math.min(maxY, Math.max(minY, y));
 
   return { x, y, scale };
 }
-
 
 
 function fitAndCenter(xPercent = START_X_PERCENT) {
@@ -864,6 +876,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
