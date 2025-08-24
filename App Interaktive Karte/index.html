@@ -699,8 +699,7 @@ function animTo(target, duration = 350) {
   requestAnimationFrame(tick);
 }
 
-
-  function render(){
+    function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
     categories.forEach(c=>{
       const el=document.createElement('button');
@@ -708,8 +707,8 @@ function animTo(target, duration = 350) {
       el.onclick=()=>renderList(c.areas);
       chips.appendChild(el);
     });
-    renderList(categories.flatMap(c=>c.areas));
   }
+    
 function renderList(areaIds){
   const list = document.getElementById('list'); 
   list.innerHTML = '';
@@ -819,6 +818,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
