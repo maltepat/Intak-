@@ -437,18 +437,26 @@ function computeTransformForPin(id, scale) {
   let x = viewCx - center.cx * scale;
   let y = viewCy - center.cy * scale;
 
-  // nur minimale Sicherheitskante, damit Karte nicht ganz rausfliegt
+  // Nur clampen, wenn Karte größer ist als Viewport
+  const mapW = MAP_W * scale;
+  const mapH = MAP_H * scale;
+
   const BLEED = 8;
 
-  const minX = rect.width  - MAP_W * scale - BLEED;
-  const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = BLEED;
-  const maxY = BLEED;
-
-  x = Math.min(maxX, Math.max(minX, x));
-  y = Math.min(maxY, Math.max(minY, y));
+  if (mapW > rect.width) {
+    const minX = rect.width - mapW - BLEED;
+    const maxX = BLEED;
+    x = Math.min(maxX, Math.max(minX, x));
+  }
+  if (mapH > rect.height) {
+    const minY = rect.height - mapH - BLEED;
+    const maxY = BLEED;
+    y = Math.min(maxY, Math.max(minY, y));
+  }
 
   return { x, y, scale };
+}
+
 }
 
 
@@ -857,6 +865,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
