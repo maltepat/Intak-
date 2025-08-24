@@ -361,19 +361,6 @@ function applyTransform(tf, animate = true) {
     window.removeEventListener('orientationchange', onVVChange);
   }
 function onVVChange() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  wrapEl.style.height = h + 'px';
-  setFullscreenVH();
-  if (panzoomInstance) {
-    requestAnimationFrame(() => {
-      const t = getTfSafe();              // ⬅️ statt panzoomInstance.getTransform()
-      if (!t) return;
-      // ⬅️ statt getOptions(): wir tracken minScale selbst über currentMinScale
-      const min = currentMinScale;
-      if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-    });
-  }
-}
 
   /* ====== Fit-Funktionen ====== */
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
@@ -384,25 +371,34 @@ function onVVChange() {
     return { scale, x, y };
   }
 
-function computeTransformForPin(id, scale = 1.8) {
+function computeTransformForPin(id, scale = 1.8, bleed = 24) {
   const c = getPinCenter(id); if (!c) return null;
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width/2, viewCy = rect.height/2;
+
+  const rect   = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width  / 2;
+  const viewCy = rect.height / 2;
 
   const desiredX = viewCx - c.cx * scale;
   const desiredY = viewCy - c.cy * scale;
 
-  const BLEED = 24;
-  const minX = rect.width  - MAP_W * scale - BLEED;
-  const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = +BLEED, maxY = +BLEED;
+  // 👉 Variante B: Clamp AUS = immer exakt zentrieren (Rand erlaubt)
+  if (bleed === null) {
+    return { x: desiredX, y: desiredY, scale };
+  }
 
-  return { 
+  // Standard: mit Clamp
+  const minX = rect.width  - MAP_W * scale - bleed;
+  const minY = rect.height - MAP_H * scale - bleed;
+  const maxX = +bleed;
+  const maxY = +bleed;
+
+  return {
     x: Math.min(maxX, Math.max(minX, desiredX)),
     y: Math.min(maxY, Math.max(minY, desiredY)),
     scale
   };
 }
+
 
 function fitAndCenter(xPercent = START_X_PERCENT) {
   if (!panzoomInstance) return;
@@ -506,7 +502,7 @@ function showMap(focusId = null) {
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
 
-      // Konsistenter Start-Zustand (wichtig für Mobile-Viewports)
+      // Konsistenter Start-Zustand
       applyTransform(fit, false);
       setOptsSafe({ minScale: fit.scale, animate: true });
 
@@ -541,23 +537,9 @@ function showMap(focusId = null) {
       requestAnimationFrame(tick);
     }
 
-    // 6) Ziel bestimmen (leicht über Fit zoomen oder auf Pin fokussieren)
-    const TARGET_SCALE = 1.8;
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
+    // 6) Ziel bestimmen – exakt zentrieren, Rand erlaubt
+    con
 
-    // 7) Anwenden (mit Fallback: Fit)
-    if (targetTf) {
-      animTo(targetTf, 350);
-      lastFocusId = id;
-      if (typeof highlightPin === 'function') highlightPin(id);
-      console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
-    } else {
-      animTo(fit, 300);
-      if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
-    }
-  }); // waitForImage
-}
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -675,18 +657,21 @@ window.__mapTest = {
     console.log('[ZOOM CENTER]', { x, y, scale });
     return panzoomInstance.getTransform();
   },
+  
+focus(id, scale = 2.5) {
+  const s  = Math.max(scale, computeFit(START_X_PERCENT).scale);
+  const tf = computeTransformForPin(id, s, null); // <— null = kein Clamp
+  if (tf) { applyTransform(tf, false); highlightPin && highlightPin(id); }
+  else    { console.warn('[FOCUS] kein Transform für', id); }
+  return getTfSafe();
+},
 
-  focus(id, scale = 2.5) {
-    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
-    console.log('[FOCUS]', id, tf);
-    if (tf) {
-      panzoomInstance.setTransform(tf);
-      highlightPin && highlightPin(id);
-    } else {
-      console.warn('[FOCUS] kein Transform für', id);
-    }
-    return panzoomInstance?.getTransform();
-  },
+animFocus(id, scale = 2.5, duration = 400) {
+  const s  = Math.max(scale, computeFit(START_X_PERCENT).scale);
+  const tf = computeTransformForPin(id, s, null); // <— null = kein Clamp
+  if (tf) this.animTo(tf, duration);
+}
+
 
   animTo(target, duration = 400) {
     const start = panzoomInstance.getTransform();
@@ -830,6 +815,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
