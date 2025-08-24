@@ -867,6 +867,142 @@ function getPinCenter(id) {
   const cy = el.offsetTop  + el.offsetHeight / 2;
   return { cx, cy };
 }
+// ===== DEBUG-KIT: alles zur Konsole =====
+(function () {
+  // Hilfsfunktionen (ändern nichts am Verhalten)
+  function getRect() {
+    const r = wrapEl.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  }
+  function getMapSize(scale) {
+    return { w: Math.round(MAP_W * scale), h: Math.round(MAP_H * scale) };
+  }
+  function getDomCenter(id) {
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    return {
+      cx: el.offsetLeft + el.offsetWidth / 2,
+      cy: el.offsetTop  + el.offsetHeight / 2,
+      note: "DOM-offset (ignoriert data-%)"
+    };
+  }
+  function getPctCenter(id) {
+    // das ist exakt deine getPinCenter-Logik – einmal separat, nur zum Vergleichen
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+    const dx = toNum(el.dataset.x);
+    const dy = toNum(el.dataset.y);
+    const wp = toNum(el.dataset.wp);
+    if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+      const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+      const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+      const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+      const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+      return { cx, cy, note: "data-% gerechnet" };
+    }
+    return null;
+  }
+  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+
+  // 1) Gesamtsnapshot des aktuellen Zustands
+  function snapshot(tag = 'SNAP') {
+    const tf = getTfSafe();
+    const r  = wrapEl.getBoundingClientRect();
+    const min = currentMinScale;
+    console.group(`[${tag}]`);
+    console.table({
+      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      transform_x: Math.round(tf?.x ?? 0),
+      transform_y: Math.round(tf?.y ?? 0),
+      scale: +(tf?.scale ?? 0).toFixed(3),
+      minScale: +min.toFixed(3),
+      map_px: `${Math.round(MAP_W*(tf?.scale||1))}×${Math.round(MAP_H*(tf?.scale||1))}`,
+      contain: (panzoomInstance?.getOptions?.().contain) || '(n/a)'
+    });
+    console.groupEnd();
+  }
+
+  // 2) Details zu einem Pin + Ziel-Transform samt Clamp-Grenzen
+  function focusPlan(id, scale = Math.max(currentMinScale, (typeof TARGET_SCALE === 'number' ? TARGET_SCALE : 1.8))) {
+    const pct = getPctCenter(id);
+    const dom = getDomCenter(id);
+    const r   = wrapEl.getBoundingClientRect();
+    const mapW = MAP_W * scale, mapH = MAP_H * scale;
+
+    // Wunsch: Mittelpunkt ins Zentrum
+    let wantX = r.width/2  - (pct?.cx ?? dom?.cx ?? 0) * scale;
+    let wantY = r.height/2 - (pct?.cy ?? dom?.cy ?? 0) * scale;
+
+    // deine symmetrischen Bounds (so wie in deiner aktuellen computeTransformForPin-Version)
+    const minX = (mapW > r.width)  ? (r.width  - mapW) : (r.width  - mapW) / 2;
+    const maxX = (mapW > r.width)  ? 0                 : (r.width  - mapW) / 2;
+    const minY = (mapH > r.height) ? (r.height - mapH) : (r.height - mapH) / 2;
+    const maxY = (mapH > r.height) ? 0                 : (r.height - mapH) / 2;
+
+    const finalX = clamp(wantX, minX, maxX);
+    const finalY = clamp(wantY, minY, maxY);
+
+    console.group(`[FOCUS PLAN] ${id}`);
+    console.table({
+      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      target_scale: +scale.toFixed(3),
+      pin_cx_pct: pct?.cx?.toFixed?.(1) ?? '—',
+      pin_cy_pct: pct?.cy?.toFixed?.(1) ?? '—',
+      pin_cx_dom: dom?.cx?.toFixed?.(1) ?? '—',
+      pin_cy_dom: dom?.cy?.toFixed?.(1) ?? '—',
+      wantX: Math.round(wantX),
+      wantY: Math.round(wantY),
+      minX: Math.round(minX),
+      maxX: Math.round(maxX),
+      minY: Math.round(minY),
+      maxY: Math.round(maxY),
+      finalX: Math.round(finalX),
+      finalY: Math.round(finalY),
+      mapW: Math.round(mapW),
+      mapH: Math.round(mapH)
+    });
+    console.groupEnd();
+
+    return { x: finalX, y: finalY, scale };
+  }
+
+  // 3) Direkter Test: berechne + animiere (nutzt deine animTo/applyTransform)
+  function animFocusDebug(id, scale) {
+    const tf = focusPlan(id, scale);
+    if (!tf) return;
+    animTo(tf, 350);
+    if (typeof highlightPin === 'function') highlightPin(id);
+    lastFocusId = id;
+  }
+
+  // 4) Vergleich mehrerer Sprünge nacheinander
+  async function jumpSeq(ids, scale) {
+    for (const id of ids) {
+      console.log('%c[JUMP]', 'color:#0a0', id);
+      const tf = focusPlan(id, scale);
+      animTo(tf, 300);
+      if (typeof highlightPin === 'function') highlightPin(id);
+      lastFocusId = id;
+      await new Promise(r => setTimeout(r, 380));
+    }
+  }
+
+  // 5) Global verfügbar machen
+  window.__mapDbg = {
+    snapshot,         // __mapDbg.snapshot()
+    plan: focusPlan,  // __mapDbg.plan('D3', 1.8)
+    focus: animFocusDebug, // __mapDbg.focus('D3', 1.8)
+    jumpSeq,          // __mapDbg.jumpSeq(['L1','Sandburg','D3','WS'], 1.8)
+    domCenter: getDomCenter,
+    pctCenter: getPctCenter
+  };
+
+  // Komfort: Tastenkürzel
+  window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'd') __mapDbg.snapshot('KEY D');
+  });
+})();
 
 
 
@@ -876,6 +1012,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
