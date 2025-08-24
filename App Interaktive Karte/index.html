@@ -66,28 +66,9 @@
 }
 
 
-.pin {
-  position: absolute;
-  /* deine bisherige Boxgröße in % bleibt gleich */
-  width: 3.05%;
-  height: auto;
-  cursor: pointer;
+.pin { width: 3.05%; aspect-ratio: 1 / 1; }  /* Höhe = Breite */
 
-  /* Bild in der Box zentrieren */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* weiterhin KEIN translate, weil getPinCenter die Box-Mitte berechnet */
-  transform: none;
-  transform-origin: center center;
-}
-
-.pin img {
-  width: 70%;   /* 👈 wieder wie vorher */
-  height: auto;
-  pointer-events: none;
-}
+  .pin img { width: 70%; height: auto; }
 
 
 
@@ -429,46 +410,30 @@ function computeTransformForPin(id, scale) {
   const c = getPinCenter(id);
   if (!c) return null;
 
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width  / 2;
-  const viewCy = rect.height / 2;
+  const r = wrapEl.getBoundingClientRect();
 
-  // Wunschposition: Pin-Mittelpunkt exakt ins Zentrum
-  let x = viewCx - c.cx * scale;
-  let y = viewCy - c.cy * scale;
+  // Wunsch: Pin-Mittelpunkt exakt ins Viewport-Zentrum
+  let x = r.width  / 2 - c.cx * scale;
+  let y = r.height / 2 - c.cy * scale;
 
   const mapW = MAP_W * scale;
   const mapH = MAP_H * scale;
 
-  // kleine Sicherheitskante (optional)
-  const BLEED = 8;
+  // Nur clampen, wenn die Karte größer ist als der Viewport – und dann SYMMETRISCH.
+  // Ist sie kleiner, wird sie exakt zentriert „eingeklemmt“ (kein Drift).
+  const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
-  // --- X: Bounds berechnen ---
-  let minX, maxX;
-  if (mapW >= rect.width) {
-    // Karte größer → klassisch zwischen (rechts bündig) und (links bündig)
-    minX = rect.width - mapW - BLEED; // maximal nach links verschoben
-    maxX = 0 + BLEED;                 // maximal nach rechts verschoben
-  } else {
-    // Karte kleiner → exakt mittig "einklemmen"
-    const centerX = (rect.width - mapW) / 2;
-    minX = maxX = centerX;            // kein Drift, immer mittig
-  }
-  x = Math.min(maxX, Math.max(minX, x));
+  const minX = (mapW > r.width)  ? (r.width  - mapW) : (r.width  - mapW) / 2;
+  const maxX = (mapW > r.width)  ? 0                : (r.width  - mapW) / 2;
+  const minY = (mapH > r.height) ? (r.height - mapH) : (r.height - mapH) / 2;
+  const maxY = (mapH > r.height) ? 0                : (r.height - mapH) / 2;
 
-  // --- Y: Bounds berechnen ---
-  let minY, maxY;
-  if (mapH >= rect.height) {
-    minY = rect.height - mapH - BLEED;
-    maxY = 0 + BLEED;
-  } else {
-    const centerY = (rect.height - mapH) / 2;
-    minY = maxY = centerY;
-  }
-  y = Math.min(maxY, Math.max(minY, y));
+  x = clamp(x, minX, maxX);
+  y = clamp(y, minY, maxY);
 
   return { x, y, scale };
 }
+
 
 
 function fitAndCenter(xPercent = START_X_PERCENT) {
@@ -558,14 +523,17 @@ function showMap(focusId = null) {
 
     // 3) Panzoom EINMAL initialisieren
     if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        contain: 'none',
-        maxScale: 4,
-        startScale: fit.scale,
-        startX: fit.x,
-        startY: fit.y,
-        animate: true
-      });
+panzoomInstance = Panzoom(mapEl, {
+  maxScale: 4,
+  contain: 'none',   // <— angleichen
+  startScale: fit.scale,
+  startX: fit.x,
+  startY: fit.y,
+  animate: true,
+  duration: 350,
+  easing: 'ease-in-out'
+});
+
 
       // Desktop: Mausrad-Zoom
       wrapEl.addEventListener('wheel', (e) => {
@@ -841,33 +809,11 @@ function renderList(areaIds){
 function getPinCenter(id) {
   const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
-
-  // robustes Parsen (unterstützt "54,4" u. "54.4")
-  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-
-  const dx = toNum(el.dataset.x);   // left in %
-  const dy = toNum(el.dataset.y);   // top in %
-  const wp = toNum(el.dataset.wp);  // box-breite in % (von MAP_W)
-
-  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    // halbe Box-Breite in %-von-MAP_W
-    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
-
-    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
-    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
-    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
-
-    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
-    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
-    return { cx, cy };
-  }
-
-  // Fallback, falls mal kein data-x/y gesetzt ist:
+  // Layout-Werte sind untransformiert → perfekt für unsere 1920x1080-Karte
   const cx = el.offsetLeft + el.offsetWidth  / 2;
   const cy = el.offsetTop  + el.offsetHeight / 2;
   return { cx, cy };
 }
-
 
 
   /* ====== Start ====== */
@@ -876,6 +822,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
