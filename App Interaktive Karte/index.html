@@ -441,14 +441,6 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
 }
 
-function fitAndCenter(xPercent = START_X_PERCENT) {
-  if (!panzoomInstance) return;
-  const { scale, x, y } = computeFit(xPercent);
-  currentMinScale = scale;           // ⬅️ merken
-  applyTransform({ x, y, scale }, false);
-  setOptsSafe({ minScale: scale });
-}
-
   /* ====== NAVIGATION ====== */
   function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
   function exitMapFullscreen(){ document.body.classList.remove('fullscreen-map'); }
@@ -500,7 +492,7 @@ function debugFocus(id, scale){
 }
   
 function showMap(focusId = null) {
-  // Tabs umschalten
+  // Tabs umschalten & UI aktualisieren
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
@@ -517,15 +509,15 @@ function showMap(focusId = null) {
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // 1) Fit & minScale berechnen und merken
+    // 1) Fit & minScale berechnen
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
     currentMinScale = minScale;
 
-    // 2) Panzoom EINMAL initialisieren
+    // 2) Panzoom initialisieren (falls noch nicht geschehen)
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
-        contain: 'outside', // WICHTIG: Ändern auf 'outside'
+        contain: 'outside',
         maxScale: 4,
         startScale: fit.scale,
         startX: fit.x,
@@ -545,38 +537,31 @@ function showMap(focusId = null) {
       window.wrapEl = wrapEl;
       window.mapEl = mapEl;
     } else {
-        // Bei erneuter Ansicht: Optionen aktualisieren
-        panzoomInstance.setOptions({
-            minScale: minScale,
-            animate: true
-        });
+        // Bei erneuter Ansicht: minScale aktualisieren
+        panzoomInstance.setOptions({ minScale: minScale, animate: true });
     }
 
-    // 3) Ziel-ID bestimmen (mit optionaler Alias-Auflösung)
+    // 3) Ziel-ID bestimmen & Pin highlighten
     const rawId = focusId || lastFocusId || getFocusFromURL() || null;
     const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
 
-    // 4) Ziel-Transformation berechnen und anwenden
     if (id) {
-      const targetScale = Math.max(minScale, TARGET_SCALE);
-      const targetTf = computeTransformForPin(id, targetScale);
-      
-      if (targetTf) {
-        // Panzoom-Befehle nutzen für eine reibungslose Animation
-        panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true });
-        panzoomInstance.zoom(targetTf.scale, { animate: true });
-
-        lastFocusId = id;
-        highlightPin(id);
-        console.log(`🔍 Focus ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
-      } else {
-        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
-      }
+      lastFocusId = id;
+      highlightPin(id);
     } else {
-      // Wenn keine ID, einfach auf eine gute Überblicksposition zoomen
-      panzoomInstance.pan(fit.x, fit.y, { animate: true });
-      panzoomInstance.zoom(Math.max(minScale, TARGET_SCALE), { animate: true });
-      console.log('[MAP] kein spezifischer Fokus – auf Überblick gezoomt.');
+      clearHighlight();
+    }
+
+    // 4) Transformation berechnen
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+    
+    // 5) Transformation anwenden
+    if (targetTf) {
+      panzoomInstance.setTransform(targetTf.x, targetTf.y, targetTf.scale);
+      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+    } else {
+      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
     }
   }); // waitForImage
 }
@@ -980,14 +965,13 @@ function getPinCenter(id) {
   });
 })();
 
-
-
   /* ====== Start ====== */
   render();
   showList(); // immer mit Liste starten
 </script>
 </body>
 </html>
+
 
 
 
