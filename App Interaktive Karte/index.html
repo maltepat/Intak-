@@ -557,10 +557,16 @@ function showMap(focusId = null) {
     
     // 5) Transformation anwenden
     if (targetTf) {
-      // ✅ Korrigierte Methode für Panzoom v4.x
+      // ✅ Korrigierte Methode: Pan-Befehl separat aufrufen
       panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
-      panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
       
+      // ✅ Verzögerung: Zoom-Befehl mit einer kleinen Pause aufrufen
+      // Dies stellt sicher, dass Panzoom den Pan-Befehl verarbeitet,
+      // bevor der Zoom-Befehl eintrifft.
+      setTimeout(() => {
+        panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
+      }, 50); // 50 Millisekunden Verzögerung
+
       console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
     } else {
       console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
@@ -991,6 +997,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
