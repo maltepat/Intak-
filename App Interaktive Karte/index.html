@@ -545,10 +545,9 @@ function showMap(focusId = null) {
 
   const mapImgEl = document.querySelector('.map-img');
 
-  // 3. Warten, bis das Kartenbild geladen ist, um Fehler zu vermeiden.
+  // 3. Warten, bis das Kartenbild geladen ist.
   waitForImage(mapImgEl, () => {
-    // 4. WICHTIG: Einen Frame warten, damit der Browser das Layout nach dem
-    //    Sichtbar-Machen des Containers (.mapwrap) final berechnen kann.
+    // 4. Einen Frame warten, damit das Browser-Layout stabil ist. (WICHTIG!)
     requestAnimationFrame(() => {
       
       // 5. Die optimale "Fit"-Ansicht und den minimalen Zoom berechnen.
@@ -556,7 +555,7 @@ function showMap(focusId = null) {
       const minScale = fit.scale;
       currentMinScale = minScale;
 
-      // 6. Panzoom initialisieren (nur beim allerersten Mal).
+      // 6. Panzoom initialisieren (falls noch nicht geschehen).
       if (!panzoomInstance) {
         panzoomInstance = Panzoom(mapEl, {
           contain: 'outside',
@@ -564,7 +563,8 @@ function showMap(focusId = null) {
           startScale: fit.scale,
           startX: fit.x,
           startY: fit.y,
-          animate: true,
+          // Hinweis: 'animate' ist hier nur für die Bibliothek-internen Aktionen relevant.
+          animate: true, 
           duration: 350,
           easing: 'ease-in-out'
         });
@@ -576,11 +576,11 @@ function showMap(focusId = null) {
         }, { passive: false });
         
       } else {
-        // Bei wiederholten Aufrufen nur den minScale aktualisieren.
+        // Bei wiederholten Aufrufen den minScale aktualisieren.
         panzoomInstance.setOptions({ minScale: minScale });
       }
 
-      // 7. Ziel-ID bestimmen (aus Funktionsparameter, letztem Fokus oder URL).
+      // 7. Ziel-ID bestimmen.
       const rawId = focusId || lastFocusId || getFocusFromURL() || null;
       const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
 
@@ -593,16 +593,16 @@ function showMap(focusId = null) {
 
       // 8. Endgültige Transformation für den Fokuspunkt berechnen.
       const targetScale = Math.max(minScale, TARGET_SCALE);
-      const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+      const targetTf = id ? computeTransformForPin(id, targetScale) : fit;
       
-      // 9. Die sanfte Animation zum Zielpunkt starten.
+      // 9. STABILE LÖSUNG: Transformation direkt setzen (ohne manuelle Animation).
       if (targetTf) {
-        animTo(targetTf, 400);
-        console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+        // Dieser Befehl springt direkt zur Zielposition.
+        panzoomInstance.setTransform(targetTf, { animate: false });
+        
+        console.log(`🔍 Fokus auf ${id} gesetzt → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
       } else {
-        // Falls kein Fokuspunkt vorhanden ist, einfach die "Fit"-Ansicht animieren.
-        animTo({ ...fit, scale: minScale }, 400);
-        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren. Zeige Gesamtansicht.`);
+        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
       }
 
     }); // Ende von requestAnimationFrame
@@ -1035,6 +1035,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
