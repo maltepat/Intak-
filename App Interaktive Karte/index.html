@@ -296,95 +296,152 @@ body.fullscreen-map .mapwrap {
 <script>
   console.log('[MAP] boot');                    // <— kleiner Rauchtest
 
-  /* ====== STATE & SETTINGS ====== */
-  let currentLang = 'de';
-  let panzoomInstance = null;
-  let currentMinScale = 1;
-  let isAnimating = false;
-  let animSeq = 0;
+/* ====== STATE & SETTINGS ====== */
+// App/Übersetzung (nicht Fokus-kritisch)
+let currentLang = 'de';
+
+// Fokus-Kern
+const MAP_W = 1920;
+const MAP_H = 1080;
+const TARGET_SCALE = 1.8;   // „angenehmer“ Standard-Zoom
+
+let panzoomInstance = null;
+let currentMinScale = 1;
+let isAnimating = false;
+let animSeq = 0;
+
 
 function setOptsSafe(opts = {}) {
-  if (panzoomInstance && typeof panzoomInstance.setOptions === 'function') {
-    panzoomInstance.setOptions(opts);
+  if (!panzoomInstance || typeof panzoomInstance.setOptions !== 'function') {
+    return false;               // -> Panzoom noch nicht bereit / keine setOptions-API
   }
+  panzoomInstance.setOptions(opts);
+  return true;                  // -> Erfolg
 }
 
 function getTfSafe() {
   if (!panzoomInstance) return null;
-  // v4-Varianten haben meist getScale/getPan, manche haben getTransform
-  if (typeof panzoomInstance.getTransform === 'function') {
-    return panzoomInstance.getTransform();
+
+  // v4.5.1: bevorzugt getTransform()
+  let tf = (typeof panzoomInstance.getTransform === 'function')
+    ? panzoomInstance.getTransform()
+    : null;
+
+  // Fallback (ältere Varianten): getScale() + getPan()
+  if (!tf && typeof panzoomInstance.getScale === 'function' && typeof panzoomInstance.getPan === 'function') {
+    const pan = panzoomInstance.getPan();
+    tf = { x: pan?.x, y: pan?.y, scale: panzoomInstance.getScale() };
   }
-  const s = (typeof panzoomInstance.getScale === 'function') ? panzoomInstance.getScale() : undefined;
-  const p = (typeof panzoomInstance.getPan   === 'function') ? panzoomInstance.getPan()   : undefined;
-  return (s !== undefined && p) ? { x: p.x, y: p.y, scale: s } : null;
+
+  if (!tf) return null;
+
+  // Werte absichern (keine NaN/Infinity durchreichen)
+  const x = Number.isFinite(tf.x) ? tf.x : 0;
+  const y = Number.isFinite(tf.y) ? tf.y : 0;
+  const scale = Number.isFinite(tf.scale) ? tf.scale : currentMinScale;
+
+  // Immer als neues Objekt zurückgeben (keine versehentliche Mutation)
+  return { x, y, scale };
 }
+
 
 function applyTransform(tf, animate = true) {
   if (!panzoomInstance || !tf) return;
+
+  // Zahlen absichern
+  const xRaw = Number(tf.x);
+  const yRaw = Number(tf.y);
+  const sRaw = Number(tf.scale);
+
+  const x = Number.isFinite(xRaw) ? xRaw : 0;
+  const y = Number.isFinite(yRaw) ? yRaw : 0;
+
+  // nie unter minScale (verhindert „Wegdriften“)
+  const min = Number.isFinite(currentMinScale) ? currentMinScale : 0.0001;
+  const scale = Number.isFinite(sRaw) ? Math.max(sRaw, min) : min;
+
+  // Animate-Flag setzen (wir steuern rAF-Animation selbst)
   setOptsSafe({ animate });
+
   if (typeof panzoomInstance.setTransform === 'function') {
-    panzoomInstance.setTransform({ x: tf.x, y: tf.y, scale: tf.scale });
+    panzoomInstance.setTransform({ x, y, scale });
   } else {
-    // Fallback (sollte bei 4.5.1 eigentlich nicht nötig sein)
-    if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, { animate });
-    if (typeof panzoomInstance.pan  === 'function') panzoomInstance.pan(tf.x, tf.y, { animate });
+    // ⚠️ Fallback – ältere Builds. Versuchen, um den Ursprung zu zoomen.
+    if (typeof panzoomInstance.zoom === 'function') {
+      try {
+        panzoomInstance.zoom(scale, { animate, focal: { clientX: 0, clientY: 0 } });
+      } catch { /* ältere Version ohne focal */ }
+    }
+    if (typeof panzoomInstance.pan === 'function') {
+      panzoomInstance.pan(x, y, { animate });
+    }
   }
+
+  // optional: Rückgabe für Debug
+  return { x, y, scale };
 }
 
-  function getPinCenterAccurate(id) {
+function getPinCenterDOM(id) {
   const el = document.getElementById(`pin-${id}`);
-  if (!el || !wrapEl) return null;
-
-  const rect = el.getBoundingClientRect();
-  const wrap = wrapEl.getBoundingClientRect();
-  const tf = getTfSafe() || { x: 0, y: 0, scale: 1 };
-
-  // Screen-Koordinate relativ zum Wrapper:
-  const sx = (rect.left - wrap.left) + rect.width  / 2;
-  const sy = (rect.top  - wrap.top)  + rect.height / 2;
-
-  // Inverse des aktuellen Pan/Zoom:
-  const cx = (sx - tf.x) / tf.scale;
-  const cy = (sy - tf.y) / tf.scale;
-
-  return { cx, cy };
+  if (!el) return null;
+  return {
+    cx: el.offsetLeft + el.offsetWidth  / 2,
+    cy: el.offsetTop  + el.offsetHeight / 2
+  };
 }
+  
 
 function animTo(target, duration = 350) {
   if (!panzoomInstance || !target) return;
 
-  const mySeq = ++animSeq;   // merke: diese Animation ist die neueste
-  const start = getTfSafe() || { x: 0, y: 0, scale: currentMinScale };
+  // --- Zielwerte sanitizen + clampen ---
+  const min = Number.isFinite(currentMinScale) ? currentMinScale : 0.0001;
+  const tgt = {
+    x: Number.isFinite(+target.x) ? +target.x : 0,
+    y: Number.isFinite(+target.y) ? +target.y : 0,
+    scale: Math.max(Number.isFinite(+target.scale) ? +target.scale : min, min)
+  };
+
+  // Sofort-snap (z. B. für Init oder harte Sprünge)
+  if (duration <= 0) {
+    setOptsSafe({ animate: false });
+    applyTransform(tgt, false);
+    setOptsSafe({ animate: true });
+    return;
+  }
+
+  const mySeq = ++animSeq;                         // neueste Animation
+  const start = getTfSafe() || { x: 0, y: 0, scale: min };
 
   isAnimating = true;
   setOptsSafe({ animate: false });
 
   const t0 = performance.now();
   function tick(now) {
-    // falls eine neuere animTo gestartet wurde: Abbrechen
-    if (mySeq !== animSeq) { isAnimating = false; return; }
+    // Abbruch, wenn neuere Animation gestartet wurde oder Panzoom weg ist
+    if (mySeq !== animSeq || !panzoomInstance) { isAnimating = false; return; }
 
     const t = Math.min(1, (now - t0) / duration);
-    const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
+    const k = 0.5 - 0.5 * Math.cos(Math.PI * t);   // easeInOutCosine
 
-    const x = start.x + (target.x - start.x) * k;
-    const y = start.y + (target.y - start.y) * k;
-    const s = start.scale + (target.scale - start.scale) * k;
+    const x = start.x + (tgt.x - start.x) * k;
+    const y = start.y + (tgt.y - start.y) * k;
+    const s = start.scale + (tgt.scale - start.scale) * k;
 
     applyTransform({ x, y, scale: s }, false);
 
     if (t < 1) {
       requestAnimationFrame(tick);
     } else {
-      // 👇 am Ende exakt aufs Ziel setzen (verhindert Drift / Rundungsfehler)
-      applyTransform(target, false);
+      // Exakter Snap aufs sanitisierte Ziel
+      applyTransform(tgt, false);
       setOptsSafe({ animate: true });
       isAnimating = false;
     }
   }
   requestAnimationFrame(tick);
 }
+
 
 
 function focusPinClassic(id, scale = 2.5) {
@@ -398,15 +455,12 @@ function focusPinClassic(id, scale = 2.5) {
   const x = rect.width  / 2 - c.cx * scale;
   const y = rect.height / 2 - c.cy * scale;
 
-  animTo({ x, y, scale }, 400);
+  animTo({ x, y, scale }, 350);
   highlightPin?.(id);
   lastFocusId = id;
 }
 
  
-
-
-  const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
   // 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
@@ -923,45 +977,16 @@ function renderList(areaIds){
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
 
-function getPinCenter(id) {
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
-
-  // robustes Parsen (unterstützt "54,4" u. "54.4")
-  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-
-  const dx = toNum(el.dataset.x);   // left in %
-  const dy = toNum(el.dataset.y);   // top in %
-  const wp = toNum(el.dataset.wp);  // box-breite in % (von MAP_W)
-
-  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    // halbe Box-Breite in %-von-MAP_W
-    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
-
-    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
-    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
-    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
-
-    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
-    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
-    return { cx, cy };
-  }
-
-  // Fallback, falls mal kein data-x/y gesetzt ist:
-  const cx = el.offsetLeft + el.offsetWidth  / 2;
-  const cy = el.offsetTop  + el.offsetHeight / 2;
-  return { cx, cy };
-}
-// ===== DEBUG-KIT: alles zur Konsole =====
 (function () {
-  // Hilfsfunktionen (ändern nichts am Verhalten)
   function getRect() {
     const r = wrapEl.getBoundingClientRect();
     return { w: Math.round(r.width), h: Math.round(r.height) };
   }
+
   function getMapSize(scale) {
     return { w: Math.round(MAP_W * scale), h: Math.round(MAP_H * scale) };
   }
+
   function getDomCenter(id) {
     const el = document.getElementById(`pin-${id}`);
     if (!el) return null;
@@ -971,26 +996,7 @@ function getPinCenter(id) {
       note: "DOM-offset (ignoriert data-%)"
     };
   }
-  function getPctCenter(id) {
-    // das ist exakt deine getPinCenter-Logik – einmal separat, nur zum Vergleichen
-    const el = document.getElementById(`pin-${id}`);
-    if (!el) return null;
-    const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-    const dx = toNum(el.dataset.x);
-    const dy = toNum(el.dataset.y);
-    const wp = toNum(el.dataset.wp);
-    if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-      const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
-      const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
-      const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
-      const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
-      return { cx, cy, note: "data-% gerechnet" };
-    }
-    return null;
-  }
-  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
 
-  // 1) Gesamtsnapshot des aktuellen Zustands
   function snapshot(tag = 'SNAP') {
     const tf = getTfSafe();
     const r  = wrapEl.getBoundingClientRect();
@@ -1008,49 +1014,6 @@ function getPinCenter(id) {
     console.groupEnd();
   }
 
-  // 2) Details zu einem Pin + Ziel-Transform samt Clamp-Grenzen
-  function focusPlan(id, scale = Math.max(currentMinScale, (typeof TARGET_SCALE === 'number' ? TARGET_SCALE : 1.8))) {
-    const pct = getPctCenter(id);
-    const dom = getDomCenter(id);
-    const r   = wrapEl.getBoundingClientRect();
-    const mapW = MAP_W * scale, mapH = MAP_H * scale;
-
-    // Wunsch: Mittelpunkt ins Zentrum
-    let wantX = r.width/2  - (pct?.cx ?? dom?.cx ?? 0) * scale;
-    let wantY = r.height/2 - (pct?.cy ?? dom?.cy ?? 0) * scale;
-
-    // deine symmetrischen Bounds (so wie in deiner aktuellen computeTransformForPin-Version)
-    const minX = (mapW > r.width)  ? (r.width  - mapW) : (r.width  - mapW) / 2;
-    const maxX = (mapW > r.width)  ? 0                 : (r.width  - mapW) / 2;
-    const minY = (mapH > r.height) ? (r.height - mapH) : (r.height - mapH) / 2;
-    const maxY = (mapH > r.height) ? 0                 : (r.height - mapH) / 2;
-
-    const finalX = clamp(wantX, minX, maxX);
-    const finalY = clamp(wantY, minY, maxY);
-
-    console.group(`[FOCUS PLAN] ${id}`);
-    console.table({
-      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
-      target_scale: +scale.toFixed(3),
-      pin_cx_pct: pct?.cx?.toFixed?.(1) ?? '—',
-      pin_cy_pct: pct?.cy?.toFixed?.(1) ?? '—',
-      pin_cx_dom: dom?.cx?.toFixed?.(1) ?? '—',
-      pin_cy_dom: dom?.cy?.toFixed?.(1) ?? '—',
-      wantX: Math.round(wantX),
-      wantY: Math.round(wantY),
-      minX: Math.round(minX),
-      maxX: Math.round(maxX),
-      minY: Math.round(minY),
-      maxY: Math.round(maxY),
-      finalX: Math.round(finalX),
-      finalY: Math.round(finalY),
-      mapW: Math.round(mapW),
-      mapH: Math.round(mapH)
-    });
-    console.groupEnd();
-
-    return { x: finalX, y: finalY, scale };
-  }
 
   // 3) Direkter Test: berechne + animiere (nutzt deine animTo/applyTransform)
   function animFocusDebug(id, scale) {
@@ -1097,6 +1060,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
