@@ -459,8 +459,9 @@ const categories = [
   { id:'site', label:{de:'Gelände', en:'Site'}, areas:['Q','Krähenwald','WS','Bus','H'] }
 ];
 
-function tLabel(cat){
-  return cat.label?.[currentLang] || cat.label?.de || '';
+function tLabel(cat) {
+  // Diese Funktion nutzt die statisch im Code definierten Label
+  return cat.label?.[currentLang] || cat.label?.de || '';
 }
 
 function render() {
@@ -573,4 +574,5 @@ document.getElementById('sheet').querySelector('.close').addEventListener('click
 // Initialaufruf
 render();
 </script>
+
 
