@@ -50,9 +50,9 @@
   position: relative;
   width: 1920px;
   height: 1080px;
-  touch-action: none; /* 👈 Ebenfalls wichtig für das innere Element */
+  touch-action: none;
   will-change: transform;
-  transform-origin: 0 0 !important;
+  transform-origin: 0 0; 
 }
 
 .map-img {
@@ -389,47 +389,98 @@ function getTfSafe() {
     return { scale, x, y };
   }
   
-function computeTransformForPin(id, scale) {
-  const c = getPinCenter(id);
-  if (!c) return null;
+function computePinLocation(id) {
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
 
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width / 2;
-  const viewCy = rect.height / 2;
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+  const dx = toNum(el.dataset.x);
+  const dy = toNum(el.dataset.y);
+  const wp = toNum(el.dataset.wp);
 
-  // 1. Berechnen, wo der Pin im Viewport sein soll,
-  // nämlich in der Mitte des Viewports, minus die skalierten Koordinaten
-  // des Pins auf der Karte.
-  const x = viewCx - (c.cx * scale);
-  const y = viewCy - (c.cy * scale);
-  
-  // 2. Panzoom kann die Transformation in einem Schritt handhaben.
-  // Es ist besser, die Pan- und Zoom-Befehle nicht getrennt zu senden,
-  // da das zu unvorhersehbarem Verhalten auf verschiedenen Geräten führen kann.
-  // Stattdessen verwenden Sie `panzoomInstance.setTransform()`.
-  
-  return { x, y, scale };
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+
+    const x = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+    const y = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+    return { x, y };
+  }
+  return null;
 }
 
-// Und so rufen Sie es auf:
-function showMap(focusId = null) {
-  // ... (bestehender Code) ...
+  function showMap(focusId = null) {
+  // Tabs umschalten & UI aktualisieren
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
+  // Mobil: Vollbild & Höhe setzen
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
+  }
+
+  // Warten, bis das Kartenbild vollständig geladen ist, um genaue Maße zu erhalten
   waitForImage(mapImgEl, () => {
-    // ... (bestehender Code) ...
+    // 1) Fit- und Mindestskalierung (minScale) basierend auf dem aktuellen Viewport berechnen
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
+    currentMinScale = minScale;
 
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+    // 2) Panzoom initialisieren (falls noch nicht geschehen)
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        contain: 'outside',
+        maxScale: 4,
+        minScale: minScale, // Die korrekte Mindestskalierung von Anfang an festlegen
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
 
-    if (targetTf) {
-      // ✅ Korrekter Weg: Einen einzigen Befehl senden
-      panzoomInstance.setTransform(targetTf.x, targetTf.y, targetTf.scale, { animate: true });
+      // Desktop: Mausrad-Zoom hinzufügen. Touch-Gesten werden automatisch von Panzoom verarbeitet.
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e, { animate: true });
+      }, { passive: false });
 
-      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
     } else {
-      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+      // Wenn Panzoom bereits existiert, Optionen aktualisieren und auf Fit zurücksetzen
+      panzoomInstance.setOptions({ minScale: minScale, animate: true });
+      panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: true });
     }
-  });
+
+    // 3) Pin-Fokus-Logik
+    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
+
+    if (id) {
+      lastFocusId = id;
+      highlightPin(id);
+      const pinLoc = computePinLocation(id);
+
+      if (pinLoc) {
+        const targetScale = Math.max(minScale, TARGET_SCALE);
+        // ✅ Korrigierter Befehl: Mit `zoomToPoint` direkt auf die Pin-Position fokussieren.
+        // Panzoom berechnet automatisch die richtige Pan- und Zoom-Transformation.
+        panzoomInstance.zoomToPoint(targetScale, pinLoc.x, pinLoc.y, { animate: true });
+
+        console.log(`🔍 Fokus auf ${id} bei x:${Math.round(pinLoc.x)} y:${Math.round(pinLoc.y)} mit s:${targetScale.toFixed(2)}`);
+      } else {
+        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+      }
+    } else {
+      // Wenn kein Pin fokussiert werden soll, einfach die Karte auf die anfängliche Position zurücksetzen.
+      clearHighlight();
+    }
+  }); // waitForImage
 }
 
 // Hilfsfunktion zum Begrenzen eines Werts
@@ -996,6 +1047,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
