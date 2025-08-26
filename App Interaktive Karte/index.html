@@ -17,7 +17,7 @@
 
   /* Tabs */
   .tabs { position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
-    background:#fff; border-bottom:1px solid #eee; }
+    background:#fff; border-bottom:1px solid #eee; }v
   .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:#f0f0f2; cursor:pointer; }
   .tab.active { background:#111; color:#fff; }
 
@@ -844,7 +844,7 @@ function renderList(areaIds){
       document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
       card.classList.add('selected');
     });
-}
+
 
 
     actions.append(btn1, btn2);
@@ -1062,6 +1062,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
