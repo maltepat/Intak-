@@ -390,51 +390,46 @@ function getTfSafe() {
   }
   
 function computeTransformForPin(id, scale) {
-  const c = getPinCenter(id);
-  if (!c) return null;
+  const c = getPinCenter(id);
+  if (!c) return null;
 
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width / 2;
-  const viewCy = rect.height / 2;
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
 
-  // 1. Berechne die gewünschte Pan-Position.
-  // Pan-Wert ist der Unterschied zwischen Viewport-Mitte und dem skalierten Pin-Mittelpunkt.
-  const x = viewCx - (c.cx * scale);
-  const y = viewCy - (c.cy * scale);
+  // 1. Berechnen, wo der Pin im Viewport sein soll,
+  // nämlich in der Mitte des Viewports, minus die skalierten Koordinaten
+  // des Pins auf der Karte.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+  
+  // 2. Panzoom kann die Transformation in einem Schritt handhaben.
+  // Es ist besser, die Pan- und Zoom-Befehle nicht getrennt zu senden,
+  // da das zu unvorhersehbarem Verhalten auf verschiedenen Geräten führen kann.
+  // Stattdessen verwenden Sie `panzoomInstance.setTransform()`.
+  
+  return { x, y, scale };
+}
 
-  const mapW = MAP_W * scale;
-  const mapH = MAP_H * scale;
+// Und so rufen Sie es auf:
+function showMap(focusId = null) {
+  // ... (bestehender Code) ...
 
-  // 2. Bounding (Begrenzung): Stelle sicher, dass die Karte nicht aus dem Sichtfeld rutscht.
-  let minX, maxX, minY, maxY;
-  
-  // Begrenzung für X
-  if (mapW >= rect.width) {
-    // Karte ist breiter als der Viewport
-    minX = rect.width - mapW;
-    maxX = 0;
-  } else {
-    // Karte ist schmaler, zentriere sie
-    minX = maxX = (rect.width - mapW) / 2;
-  }
+  waitForImage(mapImgEl, () => {
+    // ... (bestehender Code) ...
 
-  // Begrenzung für Y
-  if (mapH >= rect.height) {
-    // Karte ist höher als der Viewport
-    minY = rect.height - mapH;
-    maxY = 0;
-  } else {
-    // Karte ist kürzer, zentriere sie
-    minY = maxY = (rect.height - mapH) / 2;
-  }
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
 
-  // 3. Klammere die berechneten Pan-Werte, damit sie innerhalb der Grenzen bleiben.
-  // Eine kleine Pufferzone (BLEED) kann die Animation weicher machen.
-  const BLEED = 10;
-  const finalX = clamp(x, minX - BLEED, maxX + BLEED);
-  const finalY = clamp(y, minY - BLEED, maxY + BLEED);
+    if (targetTf) {
+      // ✅ Korrekter Weg: Einen einzigen Befehl senden
+      panzoomInstance.setTransform(targetTf.x, targetTf.y, targetTf.scale, { animate: true });
 
-  return { x: finalX, y: finalY, scale };
+      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+    } else {
+      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+    }
+  });
 }
 
 // Hilfsfunktion zum Begrenzen eines Werts
@@ -1001,6 +996,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
