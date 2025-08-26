@@ -549,26 +549,6 @@ function debugFocus(id, scale){
   });
 }
   
-// === Klassischer Fokus ohne Clamping/Mitten-Zwang ===
-function focusPinClassic(id, scale = 2.5) {
-  if (!panzoomInstance) return;
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return;
-
-  // Pin-Mittelpunkt in Map-Koordinaten (untransformiert)
-  const cx = el.offsetLeft + el.offsetWidth  / 2;
-  const cy = el.offsetTop  + el.offsetHeight / 2;
-
-  // Ziel: Pin ungefähr ins Viewport-Zentrum holen
-  const wrapRect = wrapEl.getBoundingClientRect();
-  const x = wrapRect.width  / 2 - cx * scale;
-  const y = wrapRect.height / 2 - cy * scale;
-
-  animTo({ x, y, scale }, 400);
-  highlightPin?.(id);
-  lastFocusId = id;
-}
-
 function showMap(focusId = null) {
   // Tabs umschalten
   document.getElementById('tab-map').classList.add('active');
@@ -802,8 +782,7 @@ window.__mapTest = {
     });
     renderList(categories.flatMap(c=>c.areas));
   }
-
-  function renderList(areaIds){
+function renderList(areaIds){
   const list = document.getElementById('list'); 
   list.innerHTML = '';
 
@@ -822,11 +801,19 @@ window.__mapTest = {
     icon.style.height = '52px';
 
     const body = document.createElement('div');
-    const h = document.createElement('h3'); h.textContent = data.title || id;
-    const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = data.time || '';
-    const txt = document.createElement('div'); txt.className = 'meta'; txt.innerHTML = data.text || '';
+    const h = document.createElement('h3'); 
+    h.textContent = data.title || id;
 
-    const actions = document.createElement('div'); actions.className = 'actions';
+    const meta = document.createElement('div'); 
+    meta.className = 'meta'; 
+    meta.innerHTML = data.time || '';
+
+    const txt = document.createElement('div'); 
+    txt.className = 'meta'; 
+    txt.innerHTML = data.text || '';
+
+    const actions = document.createElement('div'); 
+    actions.className = 'actions';
 
     const btn1 = document.createElement('button'); 
     btn1.className = 'btn'; 
@@ -843,8 +830,7 @@ window.__mapTest = {
     btn2.onclick = (e) => {
       e.stopPropagation();
       lastFocusId = id;
-      showMap(id);              // 👈 ID übergeben – showMap fokussiert klassisch
-      // kein focusPinClassic() hier!
+      showMap(id);              // showMap fokussiert klassisch
     };
 
     actions.append(btn1, btn2);
@@ -852,7 +838,7 @@ window.__mapTest = {
     card.append(icon, body);
     list.appendChild(card);
 
-    // Karteintrag auswählen (visuelles Feedback)
+    // Karteikarte auswählen (visuelles Feedback)
     card.addEventListener('click', () => {
       lastFocusId = id;
       document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
@@ -1077,6 +1063,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
