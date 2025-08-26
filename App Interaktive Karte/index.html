@@ -558,7 +558,10 @@ function showMap(focusId = null) {
     
     // 5) Transformation anwenden
     if (targetTf) {
-      panzoomInstance.setTransform(targetTf.x, targetTf.y, targetTf.scale);
+      // ✅ Korrigierte Methode für Panzoom v4.x
+      panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true });
+      panzoomInstance.zoom(targetTf.scale, { animate: true });
+      
       console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
     } else {
       console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
@@ -971,6 +974,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
