@@ -837,9 +837,9 @@ function getPinCenter(id) {
   // robustes Parsen (unterstützt "54,4" u. "54.4")
   const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
 
-  const dx = toNum(el.dataset.x);   // left in %
-  const dy = toNum(el.dataset.y);   // top in %
-  const wp = toNum(el.dataset.wp);  // box-breite in % (von MAP_W)
+  const dx = toNum(el.dataset.x);  // left in %
+  const dy = toNum(el.dataset.y);  // top in %
+  const wp = toNum(el.dataset.wp); // box-breite in % (von MAP_W)
 
   if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
     // halbe Box-Breite in %-von-MAP_W
@@ -854,11 +854,14 @@ function getPinCenter(id) {
     return { cx, cy };
   }
 
-  // Fallback, falls mal kein data-x/y gesetzt ist:
-  const cx = el.offsetLeft + el.offsetWidth  / 2;
-  const cy = el.offsetTop  + el.offsetHeight / 2;
-  return { cx, cy };
+  // Dieser Code-Abschnitt wurde entfernt, da er die Ursache für NaN war.
+  // const cx = el.offsetLeft + el.offsetWidth / 2;
+  // const cy = el.offsetTop + el.offsetHeight / 2;
+  // return { cx, cy };
+
+  return null;
 }
+  
 // ===== DEBUG-KIT: alles zur Konsole =====
 (function () {
   // Hilfsfunktionen (ändern nichts am Verhalten)
@@ -1002,6 +1005,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
