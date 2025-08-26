@@ -17,7 +17,7 @@
 
   /* Tabs */
   .tabs { position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
-    background:#fff; border-bottom:1px solid #eee; }v
+    background:#fff; border-bottom:1px solid #eee; }
   .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:#f0f0f2; cursor:pointer; }
   .tab.active { background:#111; color:#fff; }
 
@@ -368,25 +368,21 @@ function animTo(target, duration = 350) {
 }
 
 
- // === Klassischer Fokus ohne Clamping/Mitten-Zwang ===
+// === Klassischer Fokus auf Basis der 1920×1080-Koordinaten ===
 function focusPinClassic(id, scale = 2.5) {
   if (!panzoomInstance) return;
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return;
+  const c = getPinCenter(id);     // nutzt MAP_W/MAP_H + data-%
+  if (!c) return;
 
-  // Pin-Mittelpunkt in Map-Koordinaten (untransformiert)
-  const cx = el.offsetLeft + el.offsetWidth  / 2;
-  const cy = el.offsetTop  + el.offsetHeight / 2;
+  const rect = wrapEl.getBoundingClientRect();
+  const x = rect.width  / 2 - c.cx * scale;
+  const y = rect.height / 2 - c.cy * scale;
 
-  // Ziel: Pin ungefähr ins Viewport-Zentrum holen
-  const wrapRect = wrapEl.getBoundingClientRect();
-  const x = wrapRect.width  / 2 - cx * scale;
-  const y = wrapRect.height / 2 - cy * scale;
-
-  animTo({ x, y, scale }, 400);     // sanft zoomen
+  animTo({ x, y, scale }, 400);   // weiche Animation (mit Snap am Ende, s.u.)
   highlightPin?.(id);
   lastFocusId = id;
 }
+
  
 
 
@@ -602,6 +598,9 @@ function showMap(focusId = null) {
         startY: fit.y,
         animate: true
       });
+
+        mapEl.style.transformOrigin = '0 0';
+        mapEl.style.webkitTransformOrigin = '0 0';
 
       // Desktop: Mausrad-Zoom
       wrapEl.addEventListener('wheel', (e) => {
@@ -1078,6 +1077,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
