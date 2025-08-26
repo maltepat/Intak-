@@ -5,292 +5,282 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TXL Guide</title>
 <style>
-  :root { --pad: 16px; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, sans-serif; background:#f7f7f8; }
+  :root { --pad: 16px; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:#f7f7f8; }
 
-  /* Header */
-  .topbar { position:sticky; top:0; z-index:5; display:flex; gap:12px;
-    align-items:center; padding:12px var(--pad); background:#fff; border-bottom:1px solid #e6e6e8; }
-  .title { font-weight:700; font-size:18px; }
-  .lang { margin-left:auto; }
+  /* Header */
+  .topbar { position:sticky; top:0; z-index:5; display:flex; gap:12px;
+    align-items:center; padding:12px var(--pad); background:#fff; border-bottom:1px solid #e6e6e8; }
+  .title { font-weight:700; font-size:18px; }
+  .lang { margin-left:auto; }
 
-  /* Tabs */
-  .tabs { position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
-    background:#fff; border-bottom:1px solid #eee; }
-  .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:#f0f0f2; cursor:pointer; }
-  .tab.active { background:#111; color:#fff; }
+  /* Tabs */
+  .tabs { position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
+    background:#fff; border-bottom:1px solid #eee; }
+  .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:#f0f0f2; cursor:pointer; }
+  .tab.active { background:#111; color:#fff; }
 
-  /* Kategorie-Chips */
-  .chips { display:flex; gap:8px; overflow:auto; padding:10px var(--pad); }
-  .chip { white-space:nowrap; padding:8px 12px; border-radius:999px; background:#fff; border:1px solid #e5e5e7; cursor:pointer; }
+  /* Kategorie-Chips */
+  .chips { display:flex; gap:8px; overflow:auto; padding:10px var(--pad); }
+  .chip { white-space:nowrap; padding:8px 12px; border-radius:999px; background:#fff; border:1px solid #e5e5e7; cursor:pointer; }
 
-  /* Liste */
-  .list { padding:12px var(--pad) 80px; display:grid; gap:12px; }
-  .card { background:#fff; border:1px solid #eee; border-radius:14px; padding:14px; display:grid; grid-template-columns:52px 1fr; gap:12px; }
-  .card h3 { margin:0 0 6px; font-size:16px; }
-  .meta { color:#555; font-size:13px; }
-  .actions { margin-top:8px; display:flex; gap:8px; }
-  .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
-  .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
+  /* Liste */
+  .list { padding:12px var(--pad) 80px; display:grid; gap:12px; }
+  .card { background:#fff; border:1px solid #eee; border-radius:14px; padding:14px; display:grid; grid-template-columns:52px 1fr; gap:12px; }
+  .card h3 { margin:0 0 6px; font-size:16px; }
+  .meta { color:#555; font-size:13px; }
+  .actions { margin-top:8px; display:flex; gap:8px; }
+  .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
+  .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
 /* Karte */
 .mapwrap {
-  display:none;
-  height:calc(100vh - 112px);
-  overflow:hidden;
-  position:relative;
-  background:#000;
-  touch-action:none;
-  overscroll-behavior: contain;
+  display:none;
+  height:calc(100vh - 112px);
+  overflow:hidden;
+  position:relative;
+  background:#000;
+  touch-action:none;
+  overscroll-behavior: contain;
 }
 .mapwrap.active { display:block; }
 
 .map {
-  position:relative;
-  width:1920px;
-  height:1080px;
-  touch-action:none;
-  will-change: transform;
-  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
+  position:relative;
+  width:1920px;
+  height:1080px;
+  touch-action:none;
+  will-change: transform;
+  transform-origin: 0 0 !important;
 }
 
 .map-img {
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit: contain;     
-  display:block;
-  user-select:none;
-  pointer-events:none;
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: contain;
+  display:block;
+  user-select:none;
+  pointer-events:none;
 }
 
-
 .pin {
-  position: absolute;
-  /* deine bisherige Boxgröße in % bleibt gleich */
-  width: 3.05%;
-  height: auto;
-  cursor: pointer;
-
-  /* Bild in der Box zentrieren */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  /* weiterhin KEIN translate, weil getPinCenter die Box-Mitte berechnet */
-  transform: none;
-  transform-origin: center center;
+  position: absolute;
+  width: 3.05%;
+  height: auto;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: none;
+  transform-origin: center center;
 }
 
 .pin img {
-  width: 70%;   /* 👈 wieder wie vorher */
-  height: auto;
-  pointer-events: none;
+  width: 70%;
+  height: auto;
+  pointer-events: none;
 }
 
-
-
-  /* Pin-Highlight */
-.pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
+/* Pin-Highlight */
+.pin { transform-origin: center center; }
 .pin.highlight { z-index: 6; transform: scale(1.25); }
 .pin.highlight img {
-  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
-  animation: pinPulse 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
+  animation: pinPulse 1.2s ease-in-out infinite;
 }
 @keyframes pinPulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.08); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
 }
 
 /* (optional) ausgewählte Karte in der Liste visuell markieren */
 .card.selected {
-  border-color: #111;
-  box-shadow: 0 0 0 2px #111 inset;
+  border-color: #111;
+  box-shadow: 0 0 0 2px #111 inset;
 }
 
-  /* Bottom Sheet */
-  .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
-    box-shadow:0 -10px 30px rgba(0,0,0,.2); padding:16px; transition:bottom .25s ease; z-index:10; max-height:70vh; overflow:auto; }
-  .sheet.open { bottom:0; }
-  .sheet h3 { margin:0 0 8px; }
-  .sheet .meta { margin-bottom:10px; }
-  .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
+  /* Bottom Sheet */
+  .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
+    box-shadow:0 -10px 30px rgba(0,0,0,.2); padding:16px; transition:bottom .25s ease; z-index:10; max-height:70vh; overflow:auto; }
+  .sheet.open { bottom:0; }
+  .sheet h3 { margin:0 0 8px; }
+  .sheet .meta { margin-bottom:10px; }
+  .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
 
-  /* Mobile: Vollbild-Karte */
-  @media (max-width: 768px) {
-    body.fullscreen-map .topbar,
-    body.fullscreen-map .tabs,
-    body.fullscreen-map .chips { display:none; }
+  /* Mobile: Vollbild-Karte */
+  @media (max-width: 768px) {
+    body.fullscreen-map .topbar,
+    body.fullscreen-map .tabs,
+    body.fullscreen-map .chips { display:none; }
 
-    body.fullscreen-map { overflow:hidden; }
+    body.fullscreen-map { overflow:hidden; }
 
 body.fullscreen-map .mapwrap {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      width: 100vw;
-      height: calc(var(--vh, 1vh) * 100); /* kommt aus JS */
-      display: block !important;
-      background: #000;
-      touch-action: none;
-      overscroll-behavior: contain;
-    }
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      width: 100vw;
+      height: calc(var(--vh, 1vh) * 100);
+      display: block !important;
+      background: #000;
+      touch-action: none;
+      overscroll-behavior: contain;
+    }
 
-    .exit-fullscreen {
-      position: fixed;
-      z-index: 10000;
-      right: 12px; top: 12px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid #333;
-      background: rgba(255,255,255,.9);
-      font-weight: 600;
-    }
-    body:not(.fullscreen-map) .exit-fullscreen { display:none; }
-  }
+    .exit-fullscreen {
+      position: fixed;
+      z-index: 10000;
+      right: 12px; top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      background: rgba(255,255,255,.9);
+      font-weight: 600;
+    }
+    body:not(.fullscreen-map) .exit-fullscreen { display:none; }
+  }
 </style>
 </head>
 <body>
-  <script src="translations.js"></script>
-  <div class="topbar">
-    <div class="title">TXL Guide</div>
-    <select class="lang" id="lang" onchange="setLang(this.value)">
-      <option value="de">DE</option><option value="en">EN</option>
-      <option value="tr">TR</option><option value="uk">UK</option>
-      <option value="ru">RU</option><option value="ar">AR</option><option value="fa">FA</option>
-    </select>
-  </div>
+  <script src="translations.js"></script>
+  <div class="topbar">
+    <div class="title">TXL Guide</div>
+    <select class="lang" id="lang" onchange="setLang(this.value)">
+      <option value="de">DE</option><option value="en">EN</option>
+      <option value="tr">TR</option><option value="uk">UK</option>
+      <option value="ru">RU</option><option value="ar">AR</option><option value="fa">FA</option>
+    </select>
+  </div>
 
-  <div class="tabs">
-    <div class="tab active" id="tab-list" onclick="showList()">Liste</div>
-    <div class="tab" id="tab-map" onclick="showMap()">Karte</div>
-  </div>
+  <div class="tabs">
+    <div class="tab active" id="tab-list" onclick="showList()">Liste</div>
+    <div class="tab" id="tab-map" onclick="showMap()">Karte</div>
+  </div>
 
-  <div class="chips" id="chips"></div>
+  <div class="chips" id="chips"></div>
 
-  <div class="list" id="list"></div>
-  
-  <div class="mapwrap" id="mapwrap">
+  <div class="list" id="list"></div>
+  
+  <div class="mapwrap" id="mapwrap">
 <div class="map" id="map">
-  <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
+  <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
 
-  <div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;" data-x="33.25" data-y="57.49" data-wp="3.05">
-    <img src="icons/P5Icon.png" alt="P5"/>
-  </div>
+  <div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;" data-x="33.25" data-y="57.49" data-wp="3.05">
+    <img src="icons/P5Icon.png" alt="P5"/>
+  </div>
 
-  <div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;" data-x="28.25" data-y="37.9" data-wp="3.05">
-    <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
-  </div>
+  <div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;" data-x="28.25" data-y="37.9" data-wp="3.05">
+    <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
+  </div>
 
-  <div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;" data-x="24.7" data-y="5.9" data-wp="3.05">
-    <img src="icons/SandburgIcon.png" alt="Sandburg"/>
-  </div>
+  <div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;" data-x="24.7" data-y="5.9" data-wp="3.05">
+    <img src="icons/SandburgIcon.png" alt="Sandburg"/>
+  </div>
 
-  <div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;" data-x="44.4" data-y="88.4" data-wp="3.05">
-    <img src="icons/Q1Icon.png" alt="Q1"/>
-  </div>
+  <div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;" data-x="44.4" data-y="88.4" data-wp="3.05">
+    <img src="icons/Q1Icon.png" alt="Q1"/>
+  </div>
 
-  <div class="pin" id="pin-Q" style="top:88.9%; left:50%;" data-x="50" data-y="88.9" data-wp="3.05">
-    <img src="icons/QIcon.png" alt="Q"/>
-  </div>
+  <div class="pin" id="pin-Q" style="top:88.9%; left:50%;" data-x="50" data-y="88.9" data-wp="3.05">
+    <img src="icons/QIcon.png" alt="Q"/>
+  </div>
 
-  <div class="pin" id="pin-Post" style="top:39%; left:45.2%;" data-x="45.2" data-y="39" data-wp="3.05">
-    <img src="icons/PostIcon.png" alt="Post"/>
-  </div>
+  <div class="pin" id="pin-Post" style="top:39%; left:45.2%;" data-x="45.2" data-y="39" data-wp="3.05">
+    <img src="icons/PostIcon.png" alt="Post"/>
+  </div>
 
-  <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;" data-x="54.4" data-y="14.2" data-wp="3.05">
-    <img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/>
-  </div>
+  <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;" data-x="54.4" data-y="14.2" data-wp="3.05">
+    <img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/>
+  </div>
 
-  <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;" data-x="37.8" data-y="40.96" data-wp="3.05">
-    <img src="icons/InfopointIcon.png" alt="Infopoint"/>
-  </div>
+  <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;" data-x="37.8" data-y="40.96" data-wp="3.05">
+    <img src="icons/InfopointIcon.png" alt="Infopoint"/>
+  </div>
 
-  <div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;" data-x="14.7" data-y="20.3" data-wp="3.05">
-    <img src="icons/L1Icon.png" alt="L1"/>
-  </div>
+  <div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;" data-x="14.7" data-y="20.3" data-wp="3.05">
+    <img src="icons/L1Icon.png" alt="L1"/>
+  </div>
 
-  <div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;" data-x="14.7" data-y="10.5" data-wp="3.05">
-    <img src="icons/L2Icon.png" alt="L2"/>
-  </div>
+  <div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;" data-x="14.7" data-y="10.5" data-wp="3.05">
+    <img src="icons/L2Icon.png" alt="L2"/>
+  </div>
 
-  <div class="pin" id="pin-H" style="top:18.7%; left:28.25%;" data-x="28.25" data-y="18.7" data-wp="3.05">
-    <img src="icons/HIcon.png" alt="H"/>
-  </div>
+  <div class="pin" id="pin-H" style="top:18.7%; left:28.25%;" data-x="28.25" data-y="18.7" data-wp="3.05">
+    <img src="icons/HIcon.png" alt="H"/>
+  </div>
 
-  <div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;" data-x="54.4" data-y="9.7" data-wp="3.05">
-    <img src="icons/D3Icon.png" alt="D3"/>
-  </div>
+  <div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;" data-x="54.4" data-y="9.7" data-wp="3.05">
+    <img src="icons/D3Icon.png" alt="D3"/>
+  </div>
 
-  <div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;" data-x="61.5" data-y="54.5" data-wp="3.05">
-    <img src="icons/M5Icon.png" alt="M5"/>
-  </div>
+  <div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;" data-x="61.5" data-y="54.5" data-wp="3.05">
+    <img src="icons/M5Icon.png" alt="M5"/>
+  </div>
 
-  <div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;" data-x="41.7" data-y="54.8" data-wp="3.05">
-    <img src="icons/VWG1Icon.png" alt="VWG1"/>
-  </div>
+  <div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;" data-x="41.7" data-y="54.8" data-wp="3.05">
+    <img src="icons/VWG1Icon.png" alt="VWG1"/>
+  </div>
 
-  <div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;" data-x="38.02" data-y="52.48" data-wp="3.05">
-    <img src="icons/VWG2Icon.png" alt="VWG2"/>
-  </div>
+  <div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;" data-x="38.02" data-y="52.48" data-wp="3.05">
+    <img src="icons/VWG2Icon.png" alt="VWG2"/>
+  </div>
 
-  <div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;" data-x="39.7" data-y="57.8" data-wp="3.05">
-    <img src="icons/MedPointIcon.png" alt="Med"/>
-  </div>
+  <div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;" data-x="39.7" data-y="57.8" data-wp="3.05">
+    <img src="icons/MedPointIcon.png" alt="Med"/>
+  </div>
 
-  <div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;" data-x="45.18" data-y="57.45" data-wp="3.05">
-    <img src="icons/VWG3Icon.png" alt="VWG3"/>
-  </div>
+  <div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;" data-x="45.18" data-y="57.45" data-wp="3.05">
+    <img src="icons/VWG3Icon.png" alt="VWG3"/>
+  </div>
 
-  <div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;" data-x="34.5" data-y="65.5" data-wp="3.05">
-    <img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/>
-  </div>
+  <div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;" data-x="34.5" data-y="65.5" data-wp="3.05">
+    <img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/>
+  </div>
 
-  <div class="pin" id="pin-WS" style="top:89%; left:74.5%;" data-x="74.5" data-y="89" data-wp="3.05">
-    <img src="icons/WSIcon.png" alt="Willkommensschule"/>
-  </div>
+  <div class="pin" id="pin-WS" style="top:89%; left:74.5%;" data-x="74.5" data-y="89" data-wp="3.05">
+    <img src="icons/WSIcon.png" alt="Willkommensschule"/>
+  </div>
 
-  <div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;" data-x="40.5" data-y="68" data-wp="3.05">
-    <img src="icons/WaschsalonIcon.png" alt="Waschsalon"/>
-  </div>
+  <div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;" data-x="40.5" data-y="68" data-wp="3.05">
+    <img src="icons/WaschsalonIcon.png" alt="Waschsalon"/>
+  </div>
 
-  <div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;" data-x="42.5" data-y="27.35" data-wp="3.05">
-    <img src="icons/BusIcon.png" alt="Bus"/>
-  </div>
+  <div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;" data-x="42.5" data-y="27.35" data-wp="3.05">
+    <img src="icons/BusIcon.png" alt="Bus"/>
+  </div>
 
-  <div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;" data-x="33.1" data-y="44" data-wp="3.05">
-    <img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/>
-  </div>
+  <div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;" data-x="33.1" data-y="44" data-wp="3.05">
+    <img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/>
+  </div>
 
-  <div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;" data-x="27.3" data-y="33.5" data-wp="3.05">
-    <img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/>
-  </div>
+  <div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;" data-x="27.3" data-y="33.5" data-wp="3.05">
+    <img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/>
+  </div>
 
-  <div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;" data-x="33.1" data-y="39" data-wp="3.05">
-    <img src="icons/CheckinIcon.png" alt="Checkin"/>
-  </div>
+  <div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;" data-x="33.1" data-y="39" data-wp="3.05">
+    <img src="icons/CheckinIcon.png" alt="Checkin"/>
+  </div>
 
-  <div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;" data-x="35.5" data-y="44" data-wp="3.05">
-    <img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/>
-  </div>
+  <div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;" data-x="35.5" data-y="44" data-wp="3.05">
+    <img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/>
+  </div>
 
-  <div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;" data-x="44.5" data-y="44" data-wp="3.05">
-    <img src="icons/BistroIcon.png" alt="Bistro"/>
-  </div>
+  <div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;" data-x="44.5" data-y="44" data-wp="3.05">
+    <img src="icons/BistroIcon.png" alt="Bistro"/>
+  </div>
 </div>
 
+  <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
 
-
-  <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
-
-  <div class="sheet" id="sheet">
-    <button class="close" onclick="closeSheet()">×</button>
-    <h3 id="sTitle"></h3>
-    <div class="meta" id="sTime"></div>
-    <div id="sText"></div>
-    <div class="actions" id="sLinks"></div>
-  </div>
+  <div class="sheet" id="sheet">
+    <button class="close" onclick="closeSheet()">×</button>
+    <h3 id="sTitle"></h3>
+    <div class="meta" id="sTime"></div>
+    <div id="sText"></div>
+    <div class="actions" id="sLinks"></div>
+  </div>
 
 <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 <script>
@@ -460,39 +450,40 @@ const categories = [
 ];
 
 function tLabel(cat) {
-  // Diese Funktion nutzt die statisch im Code definierten Label
-  return cat.label?.[currentLang] || cat.label?.de || '';
+  // Diese Funktion nutzt die statisch im Code definierten Label
+  return cat.label?.[currentLang] || cat.label?.de || '';
 }
 
 function render() {
-  // Chips rendern
-  chipsEl.innerHTML = '';
-  const allCategories = [{ id: 'all', label: { de: 'Alle', en: 'All' }, areas: categories.flatMap(c => c.areas) }, ...categories];
-  allCategories.forEach(c => {
-    const el = document.createElement('button');
-    el.className = 'chip';
-    el.textContent = tLabel(c);
-    el.onclick = () => {
-      document.querySelectorAll('.chip.active').forEach(chip => chip.classList.remove('active'));
-      el.classList.add('active');
-      renderList(c.areas);
-    };
-    if (c.id === 'all') el.classList.add('active');
-    chipsEl.appendChild(el);
-  });
+  // Überprüfe, ob die translations-Daten geladen sind
+  if (typeof translations === 'undefined') {
+    listEl.innerHTML = `<div style="padding: 20px; text-align: center;">Error: The translations.js file is missing or contains errors.</div>`;
+    console.error('The translations.js file is missing or contains errors.');
+    return;
+  }
 
-  // Liste rendern
-  renderList(allCategories[0].areas);
+  // Chips rendern
+  chipsEl.innerHTML = '';
+  const allCategories = [{ id: 'all', label: { de: 'Alle', en: 'All' }, areas: categories.flatMap(c => c.areas) }, ...categories];
+  allCategories.forEach(c => {
+    const el = document.createElement('button');
+    el.className = 'chip';
+    el.textContent = tLabel(c);
+    el.onclick = () => {
+      document.querySelectorAll('.chip.active').forEach(chip => chip.classList.remove('active'));
+      el.classList.add('active');
+      renderList(c.areas);
+    };
+    if (c.id === 'all') el.classList.add('active');
+    chipsEl.appendChild(el);
+  });
+
+  // Liste rendern
+  renderList(allCategories[0].areas);
 }
 
 function renderList(areaIds) {
   listEl.innerHTML = '';
-
-  if (typeof translations === 'undefined') {
-    listEl.innerHTML = `<div style="padding: 20px; text-align: center;">Error: The translations.js file is missing or contains errors.</div>`;
-    console.error('The translations.js file is missing or contains errors.');
-    return;
-  }
 
   areaIds.forEach(id => {
     const data = translations[id]?.[currentLang];
@@ -574,5 +565,5 @@ document.getElementById('sheet').querySelector('.close').addEventListener('click
 // Initialaufruf
 render();
 </script>
-
-
+</body>
+</html>
