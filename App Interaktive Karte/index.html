@@ -5,309 +5,454 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>TXL Guide</title>
 <style>
-  :root { --pad: 16px; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, sans-serif; background:#f7f7f8; }
+  :root { --pad: 16px; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, sans-serif; background:#f7f7f8; }
 
-  /* Header */
-  .topbar { position:sticky; top:0; z-index:5; display:flex; gap:12px;
-    align-items:center; padding:12px var(--pad); background:#fff; border-bottom:1px solid #e6e6e8; }
-  .title { font-weight:700; font-size:18px; }
-  .lang { margin-left:auto; }
+  /* Header */
+  .topbar { position:sticky; top:0; z-index:5; display:flex; gap:12px;
+    align-items:center; padding:12px var(--pad); background:#fff; border-bottom:1px solid #e6e6e8; }
+  .title { font-weight:700; font-size:18px; }
+  .lang { margin-left:auto; }
 
-  /* Tabs */
-  .tabs { position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
-    background:#fff; border-bottom:1px solid #eee; }
-  .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:#f0f0f2; cursor:pointer; }
-  .tab.active { background:#111; color:#fff; }
+  /* Tabs */
+  .tabs { position:sticky; top:56px; z-index:4; display:flex; gap:8px; padding:8px var(--pad);
+    background:#fff; border-bottom:1px solid #eee; }
+  .tab { flex:1; text-align:center; padding:10px; border-radius:10px; background:#f0f0f2; cursor:pointer; }
+  .tab.active { background:#111; color:#fff; }
 
-  /* Kategorie-Chips */
-  .chips { display:flex; gap:8px; overflow:auto; padding:10px var(--pad); }
-  .chip { white-space:nowrap; padding:8px 12px; border-radius:999px; background:#fff; border:1px solid #e5e5e7; cursor:pointer; }
+  /* Kategorie-Chips */
+  .chips { display:flex; gap:8px; overflow:auto; padding:10px var(--pad); }
+  .chip { white-space:nowrap; padding:8px 12px; border-radius:999px; background:#fff; border:1px solid #e5e5e7; cursor:pointer; }
 
-  /* Liste */
-  .list { padding:12px var(--pad) 80px; display:grid; gap:12px; }
-  .card { background:#fff; border:1px solid #eee; border-radius:14px; padding:14px; display:grid; grid-template-columns:52px 1fr; gap:12px; }
-  .card h3 { margin:0 0 6px; font-size:16px; }
-  .meta { color:#555; font-size:13px; }
-  .actions { margin-top:8px; display:flex; gap:8px; }
-  .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
-  .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
+  /* Liste */
+  .list { padding:12px var(--pad) 80px; display:grid; gap:12px; }
+  .card { background:#fff; border:1px solid #eee; border-radius:14px; padding:14px; display:grid; grid-template-columns:52px 1fr; gap:12px; }
+  .card h3 { margin:0 0 6px; font-size:16px; }
+  .meta { color:#555; font-size:13px; }
+  .actions { margin-top:8px; display:flex; gap:8px; }
+  .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
+  .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
 /* Karte */
 .mapwrap {
-  display:none;
-  height:calc(100vh - 112px);
-  overflow:hidden;
-  position:relative;
-  background:#000;
-  touch-action:none;
-  overscroll-behavior: contain;
+  display:none;
+  height:calc(100vh - 112px);
+  overflow:hidden;
+  position:relative;
+  background:#000;
+  touch-action:none;
+  overscroll-behavior: contain;
 }
 .mapwrap.active { display:block; }
 
 .map {
-  position:relative;
-  width:1920px;
-  height:1080px;
-  touch-action:none;
-  will-change: transform;
-  transform-origin: 0 0 !important;
+  position:relative;
+  width:1920px;
+  height:1080px;
+  touch-action:none;
+  will-change: transform;
+  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
 }
 
 .map-img {
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit: contain;
-  display:block;
-  user-select:none;
-  pointer-events:none;
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: contain;     
+  display:block;
+  user-select:none;
+  pointer-events:none;
 }
 
+
 .pin {
-  position: absolute;
-  width: 3.05%;
-  height: auto;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: none;
-  transform-origin: center center;
+  position: absolute;
+  /* deine bisherige Boxgröße in % bleibt gleich */
+  width: 3.05%;
+  height: auto;
+  cursor: pointer;
+
+  /* Bild in der Box zentrieren */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* weiterhin KEIN translate, weil getPinCenter die Box-Mitte berechnet */
+  transform: none;
+  transform-origin: center center;
 }
 
 .pin img {
-  width: 70%;
-  height: auto;
-  pointer-events: none;
+  width: 70%;   /* 👈 wieder wie vorher */
+  height: auto;
+  pointer-events: none;
 }
 
-/* Pin-Highlight */
-.pin { transform-origin: center center; }
+
+
+  /* Pin-Highlight */
+.pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
 .pin.highlight { z-index: 6; transform: scale(1.25); }
 .pin.highlight img {
-  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
-  animation: pinPulse 1.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
+  animation: pinPulse 1.2s ease-in-out infinite;
 }
 @keyframes pinPulse {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.08); }
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
 }
 
 /* (optional) ausgewählte Karte in der Liste visuell markieren */
 .card.selected {
-  border-color: #111;
-  box-shadow: 0 0 0 2px #111 inset;
+  border-color: #111;
+  box-shadow: 0 0 0 2px #111 inset;
 }
 
-  /* Bottom Sheet */
-  .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
-    box-shadow:0 -10px 30px rgba(0,0,0,.2); padding:16px; transition:bottom .25s ease; z-index:10; max-height:70vh; overflow:auto; }
-  .sheet.open { bottom:0; }
-  .sheet h3 { margin:0 0 8px; }
-  .sheet .meta { margin-bottom:10px; }
-  .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
+  /* Bottom Sheet */
+  .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
+    box-shadow:0 -10px 30px rgba(0,0,0,.2); padding:16px; transition:bottom .25s ease; z-index:10; max-height:70vh; overflow:auto; }
+  .sheet.open { bottom:0; }
+  .sheet h3 { margin:0 0 8px; }
+  .sheet .meta { margin-bottom:10px; }
+  .sheet .close { position:absolute; right:12px; top:12px; font-size:20px; border:none; background:transparent; cursor:pointer; }
 
-  /* Mobile: Vollbild-Karte */
-  @media (max-width: 768px) {
-    body.fullscreen-map .topbar,
-    body.fullscreen-map .tabs,
-    body.fullscreen-map .chips { display:none; }
+  /* Mobile: Vollbild-Karte */
+  @media (max-width: 768px) {
+    body.fullscreen-map .topbar,
+    body.fullscreen-map .tabs,
+    body.fullscreen-map .chips { display:none; }
 
-    body.fullscreen-map { overflow:hidden; }
+    body.fullscreen-map { overflow:hidden; }
 
 body.fullscreen-map .mapwrap {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      width: 100vw;
-      height: calc(var(--vh, 1vh) * 100);
-      display: block !important;
-      background: #000;
-      touch-action: none;
-      overscroll-behavior: contain;
-    }
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      width: 100vw;
+      height: calc(var(--vh, 1vh) * 100); /* kommt aus JS */
+      display: block !important;
+      background: #000;
+      touch-action: none;
+      overscroll-behavior: contain;
+    }
 
-    .exit-fullscreen {
-      position: fixed;
-      z-index: 10000;
-      right: 12px; top: 12px;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid #333;
-      background: rgba(255,255,255,.9);
-      font-weight: 600;
-    }
-    body:not(.fullscreen-map) .exit-fullscreen { display:none; }
-  }
+    .exit-fullscreen {
+      position: fixed;
+      z-index: 10000;
+      right: 12px; top: 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      background: rgba(255,255,255,.9);
+      font-weight: 600;
+    }
+    body:not(.fullscreen-map) .exit-fullscreen { display:none; }
+  }
 </style>
 </head>
 <body>
-  <script src="translations.js"></script>
-  <div class="topbar">
-    <div class="title">TXL Guide</div>
-    <select class="lang" id="lang" onchange="setLang(this.value)">
-      <option value="de">DE</option><option value="en">EN</option>
-      <option value="tr">TR</option><option value="uk">UK</option>
-      <option value="ru">RU</option><option value="ar">AR</option><option value="fa">FA</option>
-    </select>
-  </div>
+  <div class="topbar">
+    <div class="title">TXL Guide</div>
+    <select class="lang" id="lang" onchange="setLang(this.value)">
+      <option value="de">DE</option><option value="en">EN</option>
+      <option value="tr">TR</option><option value="uk">UK</option>
+      <option value="ru">RU</option><option value="ar">AR</option><option value="fa">FA</option>
+    </select>
+  </div>
 
-  <div class="tabs">
-    <div class="tab active" id="tab-list" onclick="showList()">Liste</div>
-    <div class="tab" id="tab-map" onclick="showMap()">Karte</div>
-  </div>
+  <div class="tabs">
+    <div class="tab active" id="tab-list" onclick="showList()">Liste</div>
+    <div class="tab" id="tab-map" onclick="showMap()">Karte</div>
+  </div>
 
-  <div class="chips" id="chips"></div>
+  <div class="chips" id="chips"></div>
 
-  <div class="list" id="list"></div>
-  
-  <div class="mapwrap" id="mapwrap">
+  <div class="list" id="list"></div>
+  
+  <div class="mapwrap" id="mapwrap">
 <div class="map" id="map">
-  <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
+  <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
 
-  <div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;" data-x="33.25" data-y="57.49" data-wp="3.05">
-    <img src="icons/P5Icon.png" alt="P5"/>
-  </div>
+  <div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;" data-x="33.25" data-y="57.49" data-wp="3.05">
+    <img src="icons/P5Icon.png" alt="P5"/>
+  </div>
 
-  <div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;" data-x="28.25" data-y="37.9" data-wp="3.05">
-    <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
-  </div>
+  <div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;" data-x="28.25" data-y="37.9" data-wp="3.05">
+    <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
+  </div>
 
-  <div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;" data-x="24.7" data-y="5.9" data-wp="3.05">
-    <img src="icons/SandburgIcon.png" alt="Sandburg"/>
-  </div>
+  <div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;" data-x="24.7" data-y="5.9" data-wp="3.05">
+    <img src="icons/SandburgIcon.png" alt="Sandburg"/>
+  </div>
 
-  <div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;" data-x="44.4" data-y="88.4" data-wp="3.05">
-    <img src="icons/Q1Icon.png" alt="Q1"/>
-  </div>
+  <div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;" data-x="44.4" data-y="88.4" data-wp="3.05">
+    <img src="icons/Q1Icon.png" alt="Q1"/>
+  </div>
 
-  <div class="pin" id="pin-Q" style="top:88.9%; left:50%;" data-x="50" data-y="88.9" data-wp="3.05">
-    <img src="icons/QIcon.png" alt="Q"/>
-  </div>
+  <div class="pin" id="pin-Q" style="top:88.9%; left:50%;" data-x="50" data-y="88.9" data-wp="3.05">
+    <img src="icons/QIcon.png" alt="Q"/>
+  </div>
 
-  <div class="pin" id="pin-Post" style="top:39%; left:45.2%;" data-x="45.2" data-y="39" data-wp="3.05">
-    <img src="icons/PostIcon.png" alt="Post"/>
-  </div>
+  <div class="pin" id="pin-Post" style="top:39%; left:45.2%;" data-x="45.2" data-y="39" data-wp="3.05">
+    <img src="icons/PostIcon.png" alt="Post"/>
+  </div>
 
-  <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;" data-x="54.4" data-y="14.2" data-wp="3.05">
-    <img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/>
-  </div>
+  <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;" data-x="54.4" data-y="14.2" data-wp="3.05">
+    <img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/>
+  </div>
 
-  <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;" data-x="37.8" data-y="40.96" data-wp="3.05">
-    <img src="icons/InfopointIcon.png" alt="Infopoint"/>
-  </div>
+  <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;" data-x="37.8" data-y="40.96" data-wp="3.05">
+    <img src="icons/InfopointIcon.png" alt="Infopoint"/>
+  </div>
 
-  <div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;" data-x="14.7" data-y="20.3" data-wp="3.05">
-    <img src="icons/L1Icon.png" alt="L1"/>
-  </div>
+  <div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;" data-x="14.7" data-y="20.3" data-wp="3.05">
+    <img src="icons/L1Icon.png" alt="L1"/>
+  </div>
 
-  <div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;" data-x="14.7" data-y="10.5" data-wp="3.05">
-    <img src="icons/L2Icon.png" alt="L2"/>
-  </div>
+  <div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;" data-x="14.7" data-y="10.5" data-wp="3.05">
+    <img src="icons/L2Icon.png" alt="L2"/>
+  </div>
 
-  <div class="pin" id="pin-H" style="top:18.7%; left:28.25%;" data-x="28.25" data-y="18.7" data-wp="3.05">
-    <img src="icons/HIcon.png" alt="H"/>
-  </div>
+  <div class="pin" id="pin-H" style="top:18.7%; left:28.25%;" data-x="28.25" data-y="18.7" data-wp="3.05">
+    <img src="icons/HIcon.png" alt="H"/>
+  </div>
 
-  <div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;" data-x="54.4" data-y="9.7" data-wp="3.05">
-    <img src="icons/D3Icon.png" alt="D3"/>
-  </div>
+  <div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;" data-x="54.4" data-y="9.7" data-wp="3.05">
+    <img src="icons/D3Icon.png" alt="D3"/>
+  </div>
 
-  <div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;" data-x="61.5" data-y="54.5" data-wp="3.05">
-    <img src="icons/M5Icon.png" alt="M5"/>
-  </div>
+  <div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;" data-x="61.5" data-y="54.5" data-wp="3.05">
+    <img src="icons/M5Icon.png" alt="M5"/>
+  </div>
 
-  <div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;" data-x="41.7" data-y="54.8" data-wp="3.05">
-    <img src="icons/VWG1Icon.png" alt="VWG1"/>
-  </div>
+  <div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;" data-x="41.7" data-y="54.8" data-wp="3.05">
+    <img src="icons/VWG1Icon.png" alt="VWG1"/>
+  </div>
 
-  <div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;" data-x="38.02" data-y="52.48" data-wp="3.05">
-    <img src="icons/VWG2Icon.png" alt="VWG2"/>
-  </div>
+  <div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;" data-x="38.02" data-y="52.48" data-wp="3.05">
+    <img src="icons/VWG2Icon.png" alt="VWG2"/>
+  </div>
 
-  <div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;" data-x="39.7" data-y="57.8" data-wp="3.05">
-    <img src="icons/MedPointIcon.png" alt="Med"/>
-  </div>
+  <div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;" data-x="39.7" data-y="57.8" data-wp="3.05">
+    <img src="icons/MedPointIcon.png" alt="Med"/>
+  </div>
 
-  <div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;" data-x="45.18" data-y="57.45" data-wp="3.05">
-    <img src="icons/VWG3Icon.png" alt="VWG3"/>
-  </div>
+  <div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;" data-x="45.18" data-y="57.45" data-wp="3.05">
+    <img src="icons/VWG3Icon.png" alt="VWG3"/>
+  </div>
 
-  <div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;" data-x="34.5" data-y="65.5" data-wp="3.05">
-    <img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/>
-  </div>
+  <div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;" data-x="34.5" data-y="65.5" data-wp="3.05">
+    <img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/>
+  </div>
 
-  <div class="pin" id="pin-WS" style="top:89%; left:74.5%;" data-x="74.5" data-y="89" data-wp="3.05">
-    <img src="icons/WSIcon.png" alt="Willkommensschule"/>
-  </div>
+  <div class="pin" id="pin-WS" style="top:89%; left:74.5%;" data-x="74.5" data-y="89" data-wp="3.05">
+    <img src="icons/WSIcon.png" alt="Willkommensschule"/>
+  </div>
 
-  <div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;" data-x="40.5" data-y="68" data-wp="3.05">
-    <img src="icons/WaschsalonIcon.png" alt="Waschsalon"/>
-  </div>
+  <div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;" data-x="40.5" data-y="68" data-wp="3.05">
+    <img src="icons/WaschsalonIcon.png" alt="Waschsalon"/>
+  </div>
 
-  <div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;" data-x="42.5" data-y="27.35" data-wp="3.05">
-    <img src="icons/BusIcon.png" alt="Bus"/>
-  </div>
+  <div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;" data-x="42.5" data-y="27.35" data-wp="3.05">
+    <img src="icons/BusIcon.png" alt="Bus"/>
+  </div>
 
-  <div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;" data-x="33.1" data-y="44" data-wp="3.05">
-    <img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/>
-  </div>
+  <div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;" data-x="33.1" data-y="44" data-wp="3.05">
+    <img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/>
+  </div>
 
-  <div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;" data-x="27.3" data-y="33.5" data-wp="3.05">
-    <img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/>
-  </div>
+  <div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;" data-x="27.3" data-y="33.5" data-wp="3.05">
+    <img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/>
+  </div>
 
-  <div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;" data-x="33.1" data-y="39" data-wp="3.05">
-    <img src="icons/CheckinIcon.png" alt="Checkin"/>
-  </div>
+  <div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;" data-x="33.1" data-y="39" data-wp="3.05">
+    <img src="icons/CheckinIcon.png" alt="Checkin"/>
+  </div>
 
-  <div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;" data-x="35.5" data-y="44" data-wp="3.05">
-    <img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/>
-  </div>
+  <div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;" data-x="35.5" data-y="44" data-wp="3.05">
+    <img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/>
+  </div>
 
-  <div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;" data-x="44.5" data-y="44" data-wp="3.05">
-    <img src="icons/BistroIcon.png" alt="Bistro"/>
-  </div>
+  <div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;" data-x="44.5" data-y="44" data-wp="3.05">
+    <img src="icons/BistroIcon.png" alt="Bistro"/>
+  </div>
 </div>
 
-  <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
 
-  <div class="sheet" id="sheet">
-    <button class="close" onclick="closeSheet()">×</button>
-    <h3 id="sTitle"></h3>
-    <div class="meta" id="sTime"></div>
-    <div id="sText"></div>
-    <div class="actions" id="sLinks"></div>
-  </div>
 
+  <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
+
+  <div class="sheet" id="sheet">
+    <button class="close" onclick="closeSheet()">×</button>
+    <h3 id="sTitle"></h3>
+    <div class="meta" id="sTime"></div>
+    <div id="sText"></div>
+    <div class="actions" id="sLinks"></div>
+  </div>
+
+<script src="translations.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 <script>
-  console.log('[TXL-Guide] script loaded');
-  
+  console.log('[MAP] boot');                    // <— kleiner Rauchtest
+
 /* ====== STATE & SETTINGS ====== */
 let currentLang = 'de';
 let panzoomInstance = null;
-let highlightedPinId = null;
-let lastFocusId = null;
-const MAP_W = 1920;
-const MAP_H = 1080;
-const TARGET_SCALE = 1.8;
+let currentMinScale = 1;
 
+function setOptsSafe(opts = {}) {
+  if (panzoomInstance && typeof panzoomInstance.setOptions === 'function') {
+    panzoomInstance.setOptions(opts);
+  }
+}
+
+function getTfSafe() {
+  if (!panzoomInstance) return null;
+  // v4-Varianten haben meist getScale/getPan, manche haben getTransform
+  if (typeof panzoomInstance.getTransform === 'function') {
+    return panzoomInstance.getTransform();
+  }
+  const s = (typeof panzoomInstance.getScale === 'function') ? panzoomInstance.getScale() : undefined;
+  const p = (typeof panzoomInstance.getPan   === 'function') ? panzoomInstance.getPan()   : undefined;
+  return (s !== undefined && p) ? { x: p.x, y: p.y, scale: s } : null;
+}
+
+const MAP_W = 1920, MAP_H = 1080;
 const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
 
-/* ====== DOM ELEMENTS ====== */
+// 0 = linker Rand, 0.5 = Kartenmitte, 1 = rechter Rand
+const START_X_PERCENT = 0.5;
+
+/* ====== DOM ====== */
 const wrapEl = document.getElementById('mapwrap');
-const mapEl = document.getElementById('map');
-const listEl = document.getElementById('list');
-const chipsEl = document.getElementById('chips');
-const tabsEl = document.querySelector('.tabs');
-const sheetEl = document.getElementById('sheet');
-const mapImgEl = document.querySelector('.map-img');
+const mapEl  = document.getElementById('map');
 
+function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
+function setLang(l){ currentLang=l; render(); }
 
-/* ====== CORE LOGIC ====== */
+/* ====== Viewport-Helfer ====== */
+function setFullscreenVH() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
+}
+function enableVHWatchers() {
+  setFullscreenVH();
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', onVVChange);
+    visualViewport.addEventListener('scroll', onVVChange);
+  }
+  window.addEventListener('orientationchange', onVVChange);
+}
+function disableVHWatchers() {
+  if (window.visualViewport) {
+    visualViewport.removeEventListener('resize', onVVChange);
+    visualViewport.removeEventListener('scroll', onVVChange);
+  }
+  window.removeEventListener('orientationchange', onVVChange);
+}
+
+function onVVChange() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  wrapEl.style.height = h + 'px';
+  setFullscreenVH();
+
+  if (!panzoomInstance) return;
+
+  // Bei starken Änderungen am unteren Ende wieder auf Fit oder letzten Fokus justieren
+  requestAnimationFrame(() => {
+    const min = currentMinScale;
+    const t = getTfSafe();
+    if (!t) return;
+
+    // Wenn wir sehr nahe an minScale sind, frisch fitten
+    if (Math.abs(t.scale - min) < 0.03) {
+      const fit = computeFit(START_X_PERCENT);
+      setOptsSafe({ minScale: fit.scale });
+      currentMinScale = fit.scale;
+
+      const targetScale = Math.max(fit.scale, TARGET_SCALE);
+      const id = lastFocusId || getFocusFromURL();
+      const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
+      applyTransform(tf, false);
+    }
+  });
+}
+
+/* ====== Fit-Funktionen ====== */
+function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
+  const rect = wrapEl.getBoundingClientRect();
+  const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
+  const x = rect.width / 2 - (MAP_W * xPercent) * scale;           // gewünschter Kartenanteil mittig
+  const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
+  return { scale, x, y };
+}
+
+function computeTransformForPin(id, scale) {
+  const c = getPinCenter(id);
+  if (!c) return null;
+
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // 1. Berechne die gewünschte Pan-Position.
+  // Pan-Wert ist der Unterschied zwischen Viewport-Mitte und dem skalierten Pin-Mittelpunkt.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+
+  const mapW = MAP_W * scale;
+  const mapH = MAP_H * scale;
+
+  // 2. Bounding (Begrenzung): Stelle sicher, dass die Karte nicht aus dem Sichtfeld rutscht.
+  let minX, maxX, minY, maxY;
+
+  // Begrenzung für X
+  if (mapW >= rect.width) {
+    // Karte ist breiter als der Viewport
+    minX = rect.width - mapW;
+    maxX = 0;
+  } else {
+    // Karte ist schmaler, zentriere sie
+    minX = maxX = (rect.width - mapW) / 2;
+  }
+
+  // Begrenzung für Y
+  if (mapH >= rect.height) {
+    // Karte ist höher als der Viewport
+    minY = rect.height - mapH;
+    maxY = 0;
+  } else {
+    // Karte ist kürzer, zentriere sie
+    minY = maxY = (rect.height - mapH) / 2;
+  }
+
+  // 3. Klammere die berechneten Pan-Werte, damit sie innerhalb der Grenzen bleiben.
+  // Eine kleine Pufferzone (BLEED) kann die Animation weicher machen.
+  const BLEED = 10;
+  const finalX = clamp(x, minX - BLEED, maxX + BLEED);
+  const finalY = clamp(y, minY - BLEED, maxY + BLEED);
+
+  return { x: finalX, y: finalY, scale };
+}
+
+// Hilfsfunktion zum Begrenzen eines Werts
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(value, max));
+}
+
+/* ====== NAVIGATION ====== */
+function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
+function exitMapFullscreen(){ document.body.classList.remove('fullscreen-map'); }
+document.getElementById('exitFsBtn')?.addEventListener('click', () => showList());
+
+function showList(){
+  document.getElementById('tab-list').classList.add('active');
+  document.getElementById('tab-map').classList.remove('active');
+  wrapEl.classList.remove('active');
+  document.getElementById('list').style.display='grid';
+  if (isMobile()) { exitMapFullscreen(); disableVHWatchers(); }
+}
 
 function waitForImage(imgEl, cb) {
   if (!imgEl) return;
@@ -315,188 +460,294 @@ function waitForImage(imgEl, cb) {
   else imgEl.addEventListener('load', cb, { once: true });
 }
 
-function initPanzoom() {
-  if (panzoomInstance) return;
+function getFocusFromURL() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const hash = location.hash || '';
+    return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
+  } catch { return null; }
+}
+const TARGET_SCALE = 1.8; // zentral definieren
 
-  const fit = computeFit();
+function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
 
-  panzoomInstance = Panzoom(mapEl, {
-    maxScale: 4,
-    contain: 'outside',
-    startScale: fit.scale,
-    startX: fit.x,
-    startY: fit.y,
-    animate: true,
-    duration: 350,
-    easing: 'ease-in-out',
+function logTf(tag, tf){
+  if(!tf) return console.log(tag, '— no tf');
+  console.log(tag, { x: Math.round(tf.x), y: Math.round(tf.y), s: +tf.scale.toFixed(3) });
+}
+
+function debugFocus(id, scale){
+  const r = wrapEl.getBoundingClientRect();
+  const c = getPinCenter(id);
+  const tf = computeTransformForPin(id, scale);
+  console.table({
+    id,
+    view: JSON.stringify(logRect(r)),
+    cx: Math.round(c?.cx ?? -1),
+    cy: Math.round(c?.cy ?? -1),
+    scale: scale,
+    tf_x: Math.round(tf?.x ?? 0),
+    tf_y: Math.round(tf?.y ?? 0)
   });
-
-  // Desktop: Mausrad-Zoom
-  wrapEl.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    panzoomInstance.zoomWithWheel(e, { animate: true });
-  }, { passive: false });
-}
-
-function computeFit() {
-  const rect = wrapEl.getBoundingClientRect();
-  const scale = Math.min(rect.width / MAP_W, rect.height / MAP_H);
-  const x = (rect.width - MAP_W * scale) / 2;
-  const y = (rect.height - MAP_H * scale) / 2;
-  return { x, y, scale };
-}
-
-function computeTransformForPin(id, scale) {
-  const pinEl = document.getElementById(`pin-${id}`);
-  if (!pinEl) return null;
-
-  const rect = wrapEl.getBoundingClientRect();
-  const pinRect = pinEl.getBoundingClientRect();
-
-  // Calculate pin center relative to map element
-  const pinCenterX = pinEl.offsetLeft + pinRect.width / 2;
-  const pinCenterY = pinEl.offsetTop + pinRect.height / 2;
-
-  // Calculate new pan position to center the pin
-  const x = rect.width / 2 - pinCenterX * scale;
-  const y = rect.height / 2 - pinCenterY * scale;
-
-  return { x, y, scale };
-}
-
-
-/* ====== UI & NAVIGATION ====== */
-
-function setLang(l) {
-  currentLang = l;
-  render();
-}
-
-function showList() {
-  document.getElementById('tab-list').classList.add('active');
-  document.getElementById('tab-map').classList.remove('active');
-  wrapEl.classList.remove('active');
-  listEl.style.display = 'grid';
-  highlightPin(null);
-  document.body.classList.remove('fullscreen-map');
 }
 
 function showMap(focusId = null) {
+  // Tabs umschalten & UI aktualisieren
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
-  listEl.style.display = 'none';
+  document.getElementById('list').style.display = 'none';
 
+  // Mobil: Vollbild & Höhe setzen
   if (isMobile()) {
-    document.body.classList.add('fullscreen-map');
+    enterMapFullscreen();
     setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
   }
 
-  waitForImage(mapImgEl, () => {
-    initPanzoom();
-    const fit = computeFit();
-    panzoomInstance.setOptions({ minScale: fit.scale });
-    panzoomInstance.reset();
+  const mapImgEl = document.querySelector('.map-img');
 
-    const id = focusId || lastFocusId;
+  waitForImage(mapImgEl, () => {
+    // 1) Fit & minScale berechnen
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
+    currentMinScale = minScale;
+
+    // 2) Panzoom initialisieren (falls noch nicht geschehen)
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        contain: 'outside',
+        maxScale: 4,
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
+      // Desktop: Mausrad-Zoom
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e, { animate: true });
+      }, { passive: false });
+   
+      window.panzoomInstance = panzoomInstance;
+      window.wrapEl = wrapEl;
+      window.mapEl = mapEl;
+    } else {
+        // Bei erneuter Ansicht: minScale aktualisieren
+        panzoomInstance.setOptions({ minScale: minScale, animate: true });
+    }
+
+    // 3) Ziel-ID bestimmen & Pin highlighten
+    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
+
     if (id) {
       lastFocusId = id;
-      const targetScale = Math.max(fit.scale, TARGET_SCALE);
-      const tf = computeTransformForPin(id, targetScale);
-      if (tf) {
-        panzoomInstance.pan(tf.x, tf.y, { animate: true, duration: 350 });
-        setTimeout(() => {
-          panzoomInstance.zoom(targetScale, { animate: true, duration: 350 });
-          highlightPin(id);
-        }, 300);
-      }
+      highlightPin(id);
     } else {
-      highlightPin(null);
+      clearHighlight();
     }
-  });
+
+    // 4) Transformation berechnen
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+   
+    // 5) Transformation anwenden
+    if (targetTf) {
+      // Korrekter Ansatz: Pan- und Zoom-Befehle nacheinander ausführen.
+      panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
+      setTimeout(() => {
+        panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
+      }, 50);
+
+      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+    } else {
+      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+    }
+  }); // waitForImage
 }
 
+/* ====== LISTE & DATEN ====== */
+const categories = [
+  // Kids / Freizeit
+  { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
+  areas: ['D3', 'Kruemelecke', 'L1', 'L2', 'M5', 'P5', 'Q1', 'Sandburg']},
+
+  // Medizin / Hilfe
+  { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
+    areas:['MedPoint','Sozialerdienst','VWG1','VWG2','VWG3'] }, // 
+
+  // Services / Info
+  { id:'services', label:{de:'Service & Info', en:'Services & Info'},areas: ['Begleitdienst', 'Bistro', 'Checkin', 'Infopoint', 'Kleiderkammer', 'Post', 'Sprachmittlung', 'Waschsalon'] },
+
+  // Gelände / Orientierung
+  { id:'site', label:{de:'Gelände', en:'Site'},
+    areas:['Q','Krähenwald','WS','Bus','H'] }
+];
+
+let lastFocusId = null;        // z.B. 'MedPoint'
+let highlightedPinId = null;
 
 function highlightPin(id) {
+  // altes Highlight entfernen
   if (highlightedPinId) {
     const prev = document.getElementById(`pin-${highlightedPinId}`);
     if (prev) prev.classList.remove('highlight');
   }
-  if (id) {
-    const el = document.getElementById(`pin-${id}`);
-    if (el) {
-      el.classList.add('highlight');
-      highlightedPinId = id;
-    }
+  // neues setzen
+  const el = document.getElementById(`pin-${id}`);
+  if (el) {
+    el.classList.add('highlight');
+    highlightedPinId = id;
   }
 }
 
-
-function setFullscreenVH() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
+function clearHighlight() {
+  if (!highlightedPinId) return;
+  const el = document.getElementById(`pin-${highlightedPinId}`);
+  if (el) el.classList.remove('highlight');
+  highlightedPinId = null;
 }
 
-document.getElementById('exitFsBtn')?.addEventListener('click', () => showList());
-
-
-/* ====== DATA & RENDERING ====== */
-
-const categories = [
-  { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'}, areas: ['D3', 'Kruemelecke', 'L1', 'L2', 'M5', 'P5', 'Q1', 'Sandburg']},
-  { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'}, areas:['MedPoint','Sozialerdienst','VWG1','VWG2','VWG3'] },
-  { id:'services', label:{de:'Service & Info', en:'Services & Info'}, areas: ['Begleitdienst', 'Bistro', 'Checkin', 'Infopoint', 'Kleiderkammer', 'Post', 'Sprachmittlung', 'Waschsalon'] },
-  { id:'site', label:{de:'Gelände', en:'Site'}, areas:['Q','Krähenwald','WS','Bus','H'] }
-];
-
-function tLabel(cat) {
-  // Diese Funktion nutzt die statisch im Code definierten Label
-  return cat.label?.[currentLang] || cat.label?.de || '';
+// (optional) Alias-Auflösung, falls mal "med" statt "MedPoint" übergeben wird
+const aliases = { med: 'MedPoint', medpoint: 'MedPoint', 'med point':'MedPoint' };
+function resolveId(id) {
+  if (!id) return id;
+  const key = String(id).toLowerCase();
+  return aliases[key] || id;
 }
 
-function render() {
-  // Überprüfe, ob die translations-Daten geladen sind
-  if (typeof translations === 'undefined') {
-    listEl.innerHTML = `<div style="padding: 20px; text-align: center;">Error: The translations.js file is missing or contains errors.</div>`;
-    console.error('The translations.js file is missing or contains errors.');
-    return;
-  }
 
-  // Chips rendern
-  chipsEl.innerHTML = '';
-  const allCategories = [{ id: 'all', label: { de: 'Alle', en: 'All' }, areas: categories.flatMap(c => c.areas) }, ...categories];
-  allCategories.forEach(c => {
-    const el = document.createElement('button');
-    el.className = 'chip';
-    el.textContent = tLabel(c);
-    el.onclick = () => {
-      document.querySelectorAll('.chip.active').forEach(chip => chip.classList.remove('active'));
-      el.classList.add('active');
-      renderList(c.areas);
-    };
-    if (c.id === 'all') el.classList.add('active');
-    chipsEl.appendChild(el);
-  });
+// ===== DEBUG-HARNESS: Panzoom Tests =====
+window.__mapTest = {
+  check() {
+    const okLib = typeof Panzoom === 'function';
+    const okWrap = !!wrapEl && wrapEl.getBoundingClientRect();
+    const okMap  = !!mapEl && mapEl.getBoundingClientRect();
+    const img    = document.querySelector('.map-img');
+    const cs     = mapEl ? getComputedStyle(mapEl).transform : 'n/a';
+    console.log('[CHECK]', {
+      panzoomLoaded: okLib,
+      wrapSize: okWrap ? wrapEl.getBoundingClientRect() : null,
+      mapSize:  okMap  ? mapEl.getBoundingClientRect()  : null,
+      imgComplete: !!img?.complete,
+      cssTransformOnMap: cs
+    });
+  },
 
-  // Liste rendern
-  renderList(allCategories[0].areas);
+  init() {
+    const fit = computeFit(START_X_PERCENT);
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
+      console.log('[INIT] panzoom created →', panzoomInstance.getTransform());
+      wrapEl.addEventListener('wheel', (e) => { e.preventDefault(); panzoomInstance.zoomWithWheel(e); }, { passive: false });
+    } else {
+      console.log('[INIT] reuse →', panzoomInstance.getTransform());
+    }
+    panzoomInstance.setOptions({ minScale: fit.scale });
+    // auf Fit setzen
+    panzoomInstance.setTransform(fit);
+    return panzoomInstance.getTransform();
+  },
+
+  nudge() {
+    const fit = computeFit(START_X_PERCENT);
+    panzoomInstance.setOptions({ animate: false });
+    panzoomInstance.setTransform({ x: fit.x + 1, y: fit.y + 1, scale: fit.scale });
+    panzoomInstance.setTransform(fit);
+    console.log('[NUDGE] applied');
+    return panzoomInstance.getTransform();
+  },
+
+  fit() {
+    const fit = computeFit(START_X_PERCENT);
+    panzoomInstance.setTransform(fit);
+    console.log('[FIT] →', fit);
+    return fit;
+  },
+
+  zoomCenter(scale = 2.5) {
+    const rect = wrapEl.getBoundingClientRect();
+    const x = rect.width  / 2 - (MAP_W * 0.5) * scale;
+    const y = rect.height / 2 - (MAP_H * 0.5) * scale;
+    panzoomInstance.setTransform({ x, y, scale });
+    console.log('[ZOOM CENTER]', { x, y, scale });
+    return panzoomInstance.getTransform();
+  },
+
+  focus(id, scale = 2.5) {
+    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
+    console.log('[FOCUS]', id, tf);
+    if (tf) {
+      panzoomInstance.setTransform(tf);
+      highlightPin && highlightPin(id);
+    } else {
+      console.warn('[FOCUS] kein Transform für', id);
+    }
+    return panzoomInstance?.getTransform();
+  },
+
+  animTo(target, duration = 400) {
+    const start = panzoomInstance.getTransform();
+    const t0 = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const k = 0.5 - 0.5 * Math.cos(Math.PI * t);
+      panzoomInstance.setTransform({
+        x: start.x + (target.x - start.x) * k,
+        y: start.y + (target.y - start.y) * k,
+        scale: start.scale + (target.scale - start.scale) * k,
+      });
+      if (t < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  },
+
+  animFocus(id, scale = 2.5, duration = 400) {
+    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
+    console.log('[ANIM FOCUS]', id, tf);
+    if (tf) this.animTo(tf, duration);
+  }
+};
+
+function render(){
+  const chips = document.getElementById('chips'); chips.innerHTML='';
+  categories.forEach(c=>{
+    const el=document.createElement('button');
+    el.className='chip'; el.textContent=tLabel(c);
+    el.onclick=()=>renderList(c.areas);
+    chips.appendChild(el);
+  });
+  renderList(categories.flatMap(c=>c.areas));
 }
-
-function renderList(areaIds) {
-  listEl.innerHTML = '';
+function renderList(areaIds){
+  const list = document.getElementById('list'); 
+  list.innerHTML = '';
 
   areaIds.forEach(id => {
-    const data = translations[id]?.[currentLang];
+    const data = translations[id]?.[currentLang]; 
     if (!data) return;
 
-    const card = document.createElement('div');
+    const card = document.createElement('div'); 
     card.className = 'card';
-    if (id === lastFocusId) card.classList.add('selected');
+    if (id === lastFocusId) card.classList.add('selected'); // << neu
 
-    const icon = document.createElement('img');
-    icon.src = `icons/${id}Icon.png`;
-    icon.alt = id;
-    icon.style.width = '52px';
+    const icon = document.createElement('img'); 
+    icon.src = `icons/${id}Icon.png`; 
+    icon.alt = id; 
+    icon.style.width = '52px'; 
     icon.style.height = '52px';
 
     const body = document.createElement('div');
@@ -505,65 +756,170 @@ function renderList(areaIds) {
     const txt = document.createElement('div'); txt.className = 'meta'; txt.innerHTML = data.text || '';
 
     const actions = document.createElement('div'); actions.className = 'actions';
-    const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = translations.details_button[currentLang];
-    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); };
+    const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
+    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
 
-    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = translations.show_on_map_button[currentLang];
-    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); };
+    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
 
     actions.append(btn1, btn2);
     body.append(h, meta, txt, actions);
     card.append(icon, body);
-    listEl.appendChild(card);
+    list.appendChild(card);
 
+    // Klick auf die Karte selbst markiert die Auswahl (für späteren Tab-Wechsel auf "Karte")
     card.addEventListener('click', () => {
       lastFocusId = id;
+      // optisch updaten
       document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
       card.classList.add('selected');
     });
-  });
 }
-
-function openSheet(id) {
-  const d = translations[id]?.[currentLang];
-  if (!d) return;
-  document.getElementById('sTitle').textContent = d.title || id;
-  document.getElementById('sTime').innerHTML = d.time || '';
-  document.getElementById('sText').innerHTML = d.text || '';
-  const links = document.getElementById('sLinks');
-  links.innerHTML = '';
-  (d.links || []).forEach(l => {
-    const a = document.createElement('a');
-    a.href = l.url;
-    a.target = '_blank';
-    a.className = 'btn';
-    a.textContent = l.text || 'Mehr';
-    links.appendChild(a);
-  });
-  sheetEl.classList.add('open');
 }
-
-function closeSheet() {
-  sheetEl.classList.remove('open');
-}
-
-/* ====== EVENT LISTENERS ====== */
 
 document.querySelectorAll('.pin').forEach(el => {
   el.addEventListener('click', () => {
-    const id = el.id.replace('pin-', '');
+    const id = el.id.replace('pin-','');
     lastFocusId = id;
     highlightPin(id);
     openSheet(id);
   });
 });
 
-document.getElementById('tab-list').addEventListener('click', showList);
-document.getElementById('tab-map').addEventListener('click', showMap);
-document.getElementById('sheet').querySelector('.close').addEventListener('click', closeSheet);
 
-// Initialaufruf
+function openSheet(id){
+  const d=translations[id]?.[currentLang]; if(!d) return;
+  document.getElementById('sTitle').textContent=d.title||id;
+  document.getElementById('sTime').innerHTML=d.time||'';
+  document.getElementById('sText').innerHTML=d.text||'';
+  const links=document.getElementById('sLinks'); links.innerHTML='';
+  (d.links||[]).forEach(l=>{
+    const a=document.createElement('a'); a.href=l.url; a.target='_blank';
+    a.className='btn'; a.textContent=l.text||'Mehr';
+    links.appendChild(a);
+  });
+  document.getElementById('sheet').classList.add('open');
+}
+function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
+
+
+function getPinCenter(id) {
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
+
+  // robustes Parsen (unterstützt "54,4" u. "54.4")
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+
+  const dx = toNum(el.dataset.x);  // left in %
+  const dy = toNum(el.dataset.y);  // top in %
+  const wp = toNum(el.dataset.wp); // box-breite in % (von MAP_W)
+
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    // halbe Box-Breite in %-von-MAP_W
+    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+
+    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
+    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
+    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+
+    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+    return { cx, cy };
+  }
+
+  return null;
+}
+  
+// ===== DEBUG-KIT: alles zur Konsole =====
+(function () {
+  // Hilfsfunktionen (ändern nichts am Verhalten)
+  function getRect() {
+    const r = wrapEl.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  }
+  function getMapSize(scale) {
+    return { w: Math.round(MAP_W * scale), h: Math.round(MAP_H * scale) };
+  }
+  function getDomCenter(id) {
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    return {
+      cx: el.offsetLeft + el.offsetWidth / 2,
+      cy: el.offsetTop  + el.offsetHeight / 2,
+      note: "DOM-offset (ignoriert data-%)"
+    };
+  }
+  function getPctCenter(id) {
+    // das ist exakt deine getPinCenter-Logik – einmal separat, nur zum Vergleichen
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+    const dx = toNum(el.dataset.x);
+    const dy = toNum(el.dataset.y);
+    const wp = toNum(el.dataset.wp);
+    if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+      const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+      const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+      const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+      const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+      return { cx, cy, note: "data-% gerechnet" };
+    }
+    return null;
+  }
+  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+
+  // 1) Gesamtsnapshot des aktuellen Zustands
+  function snapshot(tag = 'SNAP') {
+    const tf = getTfSafe();
+    const r  = wrapEl.getBoundingClientRect();
+    const min = currentMinScale;
+    console.group(`[${tag}]`);
+    console.table({
+      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      transform_x: Math.round(tf?.x ?? 0),
+      transform_y: Math.round(tf?.y ?? 0),
+      scale: +(tf?.scale ?? 0).toFixed(3),
+      minScale: +min.toFixed(3),
+      map_px: `${Math.round(MAP_W*(tf?.scale||1))}×${Math.round(MAP_H*(tf?.scale||1))}`,
+      contain: (panzoomInstance?.getOptions?.().contain) || '(n/a)'
+    });
+    console.groupEnd();
+  }
+
+  // 2) Details zu einem Pin + Ziel-Transform
+  function showDebugInfo(id, scale) {
+    const r = getRect();
+    const c = getPctCenter(id);
+    const tf = computeTransformForPin(id, scale);
+    console.group(`[DEBUG] Fokus auf ${id}`);
+    console.table({
+      'Viewport Größe': `${r.w}x${r.h}`,
+      'Pin-Mitte (Daten)': c,
+      'Ziel-Maßstab': scale,
+      'Berechneter Pan-X': tf?.x,
+      'Berechneter Pan-Y': tf?.y
+    });
+    console.groupEnd();
+    return tf;
+  }
+
+  // API zur Konsole hinzufügen
+  window.debug = {
+    snapshot,
+    debugPin: showDebugInfo,
+    focus: (id) => showMap(id),
+    animTest: (id, scale) => {
+      const tf = showDebugInfo(id, scale);
+      if (!tf) return;
+      panzoomInstance.pan(tf.x, tf.y, { animate: true, duration: 350 });
+      setTimeout(() => {
+        panzoomInstance.zoom(tf.scale, { animate: true, duration: 350 });
+      }, 50);
+    }
+  };
+})();
 render();
-</script>
-</body>
-</html>
+
+
+
+
