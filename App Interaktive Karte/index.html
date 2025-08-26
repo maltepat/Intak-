@@ -33,25 +33,26 @@
   .actions { margin-top:8px; display:flex; gap:8px; }
   .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
   .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
-/* Karte */
+
+  /* Karte */
 .mapwrap {
-  display:none;
-  height:calc(100vh - 112px);
-  overflow:hidden;
-  position:relative;
-  background:#000;
-  touch-action:none;
+  display: none;
+  height: calc(100vh - 112px);
+  overflow: hidden;
+  position: relative;
+  background: #000;
+  touch-action: none; /* 👈 Diese Eigenschaft ist entscheidend */
   overscroll-behavior: contain;
 }
 .mapwrap.active { display:block; }
 
 .map {
-  position:relative;
-  width:1920px;
-  height:1080px;
-  touch-action:none;
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  touch-action: none; /* 👈 Ebenfalls wichtig für das innere Element */
   will-change: transform;
-  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
+  transform-origin: 0 0 !important;
 }
 
 .map-img {
@@ -1000,6 +1001,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
