@@ -299,8 +299,9 @@ body.fullscreen-map .mapwrap {
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
   let panzoomInstance = null;
-
   let currentMinScale = 1;
+  let isAnimating = false;
+  let animSeq = 0;
 
 function setOptsSafe(opts = {}) {
   if (panzoomInstance && typeof panzoomInstance.setOptions === 'function') {
@@ -333,25 +334,39 @@ function applyTransform(tf, animate = true) {
 
 function animTo(target, duration = 350) {
   if (!panzoomInstance || !target) return;
+
+  const mySeq = ++animSeq;   // merke: diese Animation ist die neueste
   const start = getTfSafe() || { x: 0, y: 0, scale: currentMinScale };
 
+  isAnimating = true;
   setOptsSafe({ animate: false });
 
   const t0 = performance.now();
   function tick(now) {
+    // falls eine neuere animTo gestartet wurde: Abbrechen
+    if (mySeq !== animSeq) { isAnimating = false; return; }
+
     const t = Math.min(1, (now - t0) / duration);
     const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
+
     const x = start.x + (target.x - start.x) * k;
     const y = start.y + (target.y - start.y) * k;
     const s = start.scale + (target.scale - start.scale) * k;
 
     applyTransform({ x, y, scale: s }, false);
 
-    if (t < 1) requestAnimationFrame(tick);
-    else setOptsSafe({ animate: true });
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      // 👇 am Ende exakt aufs Ziel setzen (verhindert Drift / Rundungsfehler)
+      applyTransform(target, false);
+      setOptsSafe({ animate: true });
+      isAnimating = false;
+    }
   }
   requestAnimationFrame(tick);
 }
+
 
  // === Klassischer Fokus ohne Clamping/Mitten-Zwang ===
 function focusPinClassic(id, scale = 2.5) {
@@ -409,12 +424,13 @@ function focusPinClassic(id, scale = 2.5) {
     window.removeEventListener('orientationchange', onVVChange);
   }
 
-  function onVVChange() {
+function onVVChange() {
   const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   wrapEl.style.height = h + 'px';
   setFullscreenVH();
 
   if (!panzoomInstance) return;
+  if (isAnimating) return;
 
   // Bei starken Änderungen am unteren Ende wieder auf Fit oder letzten Fokus justieren
   requestAnimationFrame(() => {
@@ -1062,6 +1078,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
