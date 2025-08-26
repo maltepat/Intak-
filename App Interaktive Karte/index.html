@@ -299,7 +299,6 @@ body.fullscreen-map .mapwrap {
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
   let panzoomInstance = null;
-
   let currentMinScale = 1;
 
 function setOptsSafe(opts = {}) {
@@ -318,42 +317,6 @@ function getTfSafe() {
   const p = (typeof panzoomInstance.getPan   === 'function') ? panzoomInstance.getPan()   : undefined;
   return (s !== undefined && p) ? { x: p.x, y: p.y, scale: s } : null;
 }
-
-function applyTransform(tf, animate = true) {
-  if (!panzoomInstance || !tf) return;
-  setOptsSafe({ animate });
-  if (typeof panzoomInstance.setTransform === 'function') {
-    panzoomInstance.setTransform({ x: tf.x, y: tf.y, scale: tf.scale });
-  } else {
-    // Fallback (sollte bei 4.5.1 eigentlich nicht nötig sein)
-    if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, { animate });
-    if (typeof panzoomInstance.pan  === 'function') panzoomInstance.pan(tf.x, tf.y, { animate });
-  }
-}
-
-function animTo(target, duration = 350) {
-  if (!panzoomInstance || !target) return;
-  const start = getTfSafe() || { x: 0, y: 0, scale: currentMinScale };
-
-  setOptsSafe({ animate: false });
-
-  const t0 = performance.now();
-  function tick(now) {
-    const t = Math.min(1, (now - t0) / duration);
-    const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
-    const x = start.x + (target.x - start.x) * k;
-    const y = start.y + (target.y - start.y) * k;
-    const s = start.scale + (target.scale - start.scale) * k;
-
-    applyTransform({ x, y, scale: s }, false);
-
-    if (t < 1) requestAnimationFrame(tick);
-    else setOptsSafe({ animate: true });
-  }
-  requestAnimationFrame(tick);
-}
-  
-
 
   const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
@@ -559,59 +522,65 @@ function showMap(focusId = null) {
     const minScale = fit.scale;
     currentMinScale = minScale;
 
-    // 2) Ziel-ID (mit optionaler Alias-Auflösung)
-    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
-    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
-
-    // 3) Panzoom EINMAL initialisieren
+    // 2) Panzoom EINMAL initialisieren
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
-        contain: 'none',
+        contain: 'outside', // WICHTIG: Ändern auf 'outside'
         maxScale: 4,
         startScale: fit.scale,
         startX: fit.x,
         startY: fit.y,
-        animate: true
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
       });
 
       // Desktop: Mausrad-Zoom
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
-        panzoomInstance.zoomWithWheel(e);
+        panzoomInstance.zoomWithWheel(e, { animate: true });
       }, { passive: false });
-
-      // Konsistenter Start-Zustand (wichtig für Mobile-Viewports)
-      applyTransform(fit, false);
-      setOptsSafe({ minScale: fit.scale, animate: true });
-
-      // optional fürs Debuggen
+    
       window.panzoomInstance = panzoomInstance;
       window.wrapEl = wrapEl;
-      window.mapEl  = mapEl;
+      window.mapEl = mapEl;
+    } else {
+        // Bei erneuter Ansicht: Optionen aktualisieren
+        panzoomInstance.setOptions({
+            minScale: minScale,
+            animate: true
+        });
     }
 
-    // 4) minScale nachziehen (falls showMap erneut aufgerufen wird)
-    setOptsSafe({ minScale, animate: true });
+    // 3) Ziel-ID bestimmen (mit optionaler Alias-Auflösung)
+    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
 
-    // 5) Ziel bestimmen (leicht über Fit zoomen oder auf Pin fokussieren)
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale)
-                        : { ...fit, scale: targetScale };
-
-    // 6) Anwenden (mit Fallback: Fit)
-    animTo(targetTf || fit, 350);
-
-    // 7) Status/Highlight aktualisieren
+    // 4) Ziel-Transformation berechnen und anwenden
     if (id) {
-      lastFocusId = id;
-      if (typeof highlightPin === 'function') highlightPin(id);
-      console.log(`🔍 Focus ${id} → x:${Math.round((targetTf?.x ?? fit.x))} y:${Math.round((targetTf?.y ?? fit.y))} s:${(targetTf?.scale ?? fit.scale).toFixed(2)}`);
+      const targetScale = Math.max(minScale, TARGET_SCALE);
+      const targetTf = computeTransformForPin(id, targetScale);
+      
+      if (targetTf) {
+        // Panzoom-Befehle nutzen für eine reibungslose Animation
+        panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true });
+        panzoomInstance.zoom(targetTf.scale, { animate: true });
+
+        lastFocusId = id;
+        highlightPin(id);
+        console.log(`🔍 Focus ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+      } else {
+        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+      }
     } else {
-      console.log('[MAP] kein spezifischer Fokus – auf angenehmen Überblick gezoomt.');
+      // Wenn keine ID, einfach auf eine gute Überblicksposition zoomen
+      panzoomInstance.pan(fit.x, fit.y, { animate: true });
+      panzoomInstance.zoom(Math.max(minScale, TARGET_SCALE), { animate: true });
+      console.log('[MAP] kein spezifischer Fokus – auf Überblick gezoomt.');
     }
   }); // waitForImage
 }
-
+  
   /* ====== LISTE & DATEN ====== */
 const categories = [
   // Kids / Freizeit
@@ -1019,6 +988,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
