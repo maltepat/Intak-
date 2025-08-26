@@ -491,14 +491,51 @@ function debugFocus(id, scale){
   });
 }
   
+/**
+ * Animiert die Karte sanft von der aktuellen zur Ziel-Transformation.
+ * @param {object} target - Das Zielobjekt mit {x, y, scale}.
+ * @param {number} duration - Die Dauer der Animation in Millisekunden.
+ */
+function animTo(target, duration = 400) {
+  // Stellt sicher, dass eine Panzoom-Instanz und ein Ziel vorhanden sind.
+  if (!panzoomInstance || !target) return;
+
+  const start = panzoomInstance.getTransform();
+  const t0 = performance.now();
+
+  function tick(now) {
+    const t = Math.min(1, (now - t0) / duration);
+    // Sanfter "Ease-In-Out"-Übergang für eine natürliche Animation.
+    const k = 0.5 - 0.5 * Math.cos(Math.PI * t);
+
+    // Berechnet und setzt die Zwischenwerte für jeden Frame.
+    panzoomInstance.setTransform({
+      x: start.x + (target.x - start.x) * k,
+      y: start.y + (target.y - start.y) * k,
+      scale: start.scale + (target.scale - start.scale) * k,
+    }, { animate: false }); // Wichtig: Deaktiviert die eingebaute Animation der Bibliothek.
+
+    // Führt die Animation fort, bis sie abgeschlossen ist.
+    if (t < 1) {
+      requestAnimationFrame(tick);
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+
+/**
+ * Zeigt die Kartenansicht an und fokussiert optional auf eine bestimmte ID.
+ * @param {string|null} focusId - Die ID des Pins, der fokussiert werden soll.
+ */
 function showMap(focusId = null) {
-  // Tabs umschalten & UI aktualisieren
+  // 1. UI-Elemente aktualisieren (Tabs, Ansichten etc.)
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobil: Vollbild & Höhe setzen
+  // 2. Auf Mobilgeräten in den Vollbildmodus wechseln.
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -508,70 +545,68 @@ function showMap(focusId = null) {
 
   const mapImgEl = document.querySelector('.map-img');
 
+  // 3. Warten, bis das Kartenbild geladen ist, um Fehler zu vermeiden.
   waitForImage(mapImgEl, () => {
-    // 1) Fit & minScale berechnen
-    const fit = computeFit(START_X_PERCENT);
-    const minScale = fit.scale;
-    currentMinScale = minScale;
-
-    // 2) Panzoom initialisieren (falls noch nicht geschehen)
-    if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        contain: 'outside',
-        maxScale: 4,
-        startScale: fit.scale,
-        startX: fit.x,
-        startY: fit.y,
-        animate: true,
-        duration: 350,
-        easing: 'ease-in-out'
-      });
-      // Desktop: Mausrad-Zoom
-      wrapEl.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        panzoomInstance.zoomWithWheel(e, { animate: true });
-      }, { passive: false });
-    
-      window.panzoomInstance = panzoomInstance;
-      window.wrapEl = wrapEl;
-      window.mapEl = mapEl;
-    } else {
-        // Bei erneuter Ansicht: minScale aktualisieren
-        panzoomInstance.setOptions({ minScale: minScale, animate: true });
-    }
-
-    // 3) Ziel-ID bestimmen & Pin highlighten
-    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
-    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
-
-    if (id) {
-      lastFocusId = id;
-      highlightPin(id);
-    } else {
-      clearHighlight();
-    }
-
-    // 4) Transformation berechnen
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
-    
-    // 5) Transformation anwenden
-    if (targetTf) {
-      // ✅ Korrigierte Methode: Pan-Befehl separat aufrufen
-      panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
+    // 4. WICHTIG: Einen Frame warten, damit der Browser das Layout nach dem
+    //    Sichtbar-Machen des Containers (.mapwrap) final berechnen kann.
+    requestAnimationFrame(() => {
       
-      // ✅ Verzögerung: Zoom-Befehl mit einer kleinen Pause aufrufen
-      // Dies stellt sicher, dass Panzoom den Pan-Befehl verarbeitet,
-      // bevor der Zoom-Befehl eintrifft.
-      setTimeout(() => {
-        panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
-      }, 50); // 50 Millisekunden Verzögerung
+      // 5. Die optimale "Fit"-Ansicht und den minimalen Zoom berechnen.
+      const fit = computeFit(START_X_PERCENT);
+      const minScale = fit.scale;
+      currentMinScale = minScale;
 
-      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
-    } else {
-      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
-    }
-  }); // waitForImage
+      // 6. Panzoom initialisieren (nur beim allerersten Mal).
+      if (!panzoomInstance) {
+        panzoomInstance = Panzoom(mapEl, {
+          contain: 'outside',
+          maxScale: 4,
+          startScale: fit.scale,
+          startX: fit.x,
+          startY: fit.y,
+          animate: true,
+          duration: 350,
+          easing: 'ease-in-out'
+        });
+        
+        // Mausrad-Zoom für Desktop hinzufügen.
+        wrapEl.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          panzoomInstance.zoomWithWheel(e, { animate: true });
+        }, { passive: false });
+        
+      } else {
+        // Bei wiederholten Aufrufen nur den minScale aktualisieren.
+        panzoomInstance.setOptions({ minScale: minScale });
+      }
+
+      // 7. Ziel-ID bestimmen (aus Funktionsparameter, letztem Fokus oder URL).
+      const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+      const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
+
+      if (id) {
+        lastFocusId = id;
+        highlightPin(id);
+      } else {
+        clearHighlight();
+      }
+
+      // 8. Endgültige Transformation für den Fokuspunkt berechnen.
+      const targetScale = Math.max(minScale, TARGET_SCALE);
+      const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+      
+      // 9. Die sanfte Animation zum Zielpunkt starten.
+      if (targetTf) {
+        animTo(targetTf, 400);
+        console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+      } else {
+        // Falls kein Fokuspunkt vorhanden ist, einfach die "Fit"-Ansicht animieren.
+        animTo({ ...fit, scale: minScale }, 400);
+        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren. Zeige Gesamtansicht.`);
+      }
+
+    }); // Ende von requestAnimationFrame
+  }); // Ende von waitForImage
 }
 
 // Überarbeitete Funktion: Entfernung der unnötigen Begrenzung.
@@ -1000,6 +1035,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
