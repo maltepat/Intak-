@@ -528,13 +528,12 @@ function showMap(focusId = null) {
     const targetScale = Math.max(minScale, TARGET_SCALE);
 
     if (pinLoc) {
-        // ✅ Korrigierte und robuste Methode: mit zoomToPoint direkt auf die Pin-Position fokussieren.
-        // Die Panzoom-Bibliothek berechnet automatisch die richtige Pan- und Zoom-Transformation in einem Schritt.
+        // Korrigierte und robuste Methode: Mit `zoomToPoint` direkt auf die Pin-Position fokussieren.
+        // Die Panzoom-Bibliothek berechnet automatisch die richtige Pan- und Zoom-Transformation.
         panzoomInstance.zoomToPoint(targetScale, pinLoc.x, pinLoc.y, { animate: true });
-
         console.log(`🔍 Fokus auf ${id} bei x:${Math.round(pinLoc.x)} y:${Math.round(pinLoc.y)} mit s:${targetScale.toFixed(2)}`);
     } else {
-        // Wenn kein Pin fokussiert werden soll, einfach die Karte auf die anfängliche Position zurücksetzen.
+        // Wenn kein Pin fokussiert werden soll, die Karte auf die anfängliche Position zurücksetzen.
         panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: true });
         console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
     }
@@ -950,6 +949,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
