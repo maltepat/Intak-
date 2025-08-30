@@ -495,7 +495,7 @@ if (!panzoomInstance) {
   // Event Listener nur einmalig hinzufügen
   wrapEl.addEventListener('wheel', (e) => {
     e.preventDefault();
-    panzoomInstance.zoomWithWheel(e, { animate: false });
+    panzoomInstance.zoomWithWheel(e, { animate: true });
   }, { passive: false });
 }
 
@@ -936,6 +936,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
