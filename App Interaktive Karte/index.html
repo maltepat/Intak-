@@ -389,28 +389,6 @@ function onVVChange() {
     return { scale, x, y };
   }
   
-function computePinLocation(id) {
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
-
-  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-  const dx = toNum(el.dataset.x);
-  const dy = toNum(el.dataset.y);
-
-  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    // Manuell die Pin-Größe basierend auf dem CSS-Wert berechnen
-    const pinWidthInPixels = (0.0305 * MAP_W);
-    const pinHeightInPixels = pinWidthInPixels; // Da die Pins quadratisch sind
-
-    // Die Mitte des Pins ist die Pin-Position plus die Hälfte der Pin-Breite/Höhe
-    const x = ((dx / 100) * MAP_W) + (pinWidthInPixels / 2);
-    const y = ((dy / 100) * MAP_H) + (pinHeightInPixels / 2);
-
-    return { x, y };
-  }
-  return null;
-}
-
 // Hilfsfunktion zum Begrenzen eines Werts
 function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
@@ -466,81 +444,80 @@ function debugFocus(id, scale){
   });
 }
   
+// Ersetze deine bestehende showMap-Funktion mit dieser Version
 function showMap(focusId = null) {
-  // Zuerst bestehende Panzoom-Instanz zerstören
-  if (panzoomInstance) {
-    panzoomInstance.destroy();
-    panzoomInstance = null;
-  }
-  // Tabs umschalten & UI aktualisieren
-  document.getElementById('tab-map').classList.add('active');
-  document.getElementById('tab-list').classList.remove('active');
-  wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
+  // Zerstöre die alte Instanz, falls sie existiert
+  if (panzoomInstance) {
+    panzoomInstance.destroy();
+    panzoomInstance = null;
+  }
+  
+  // Tabs umschalten & UI aktualisieren
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-  // Mobil: Vollbild & Höhe setzen
-  if (isMobile()) {
-    enterMapFullscreen();
-    setFullscreenVH();
-    enableVHWatchers();
-  }
+  // Mobile: Vollbild & Höhe setzen
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    enableVHWatchers();
+  }
 
-  const mapImgEl = document.querySelector('.map-img');
+  const mapImgEl = document.querySelector('.map-img');
 
-  waitForImage(mapImgEl, () => {
-    // 1) Fit & minScale berechnen
-    const fit = computeFit(START_X_PERCENT);
-    const minScale = fit.scale;
-    currentMinScale = minScale;
-
-    // 2) Panzoom initialisieren (jetzt immer neu)
-    panzoomInstance = Panzoom(mapEl, {
-      contain: 'outside',
-      maxScale: 4,
-      startScale: fit.scale,
-      startX: fit.x,
-      startY: fit.y,
-      animate: true,
-      duration: 350,
-      easing: 'ease-in-out',
-      minScale: minScale
-    });
-
-    // Desktop: Mausrad-Zoom
-    wrapEl.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      panzoomInstance.zoomWithWheel(e, { animate: true });
-    }, { passive: false });
-    
-    window.panzoomInstance = panzoomInstance;
-    window.wrapEl = wrapEl;
-    window.mapEl = mapEl;
-    
-    // 3) Ziel-ID bestimmen & Pin highlighten
-    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
-    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
-
-    if (id) {
-      lastFocusId = id;
-      highlightPin(id);
-    } else {
-      clearHighlight();
-    }
-    
-    const pinLoc = id ? getPinCenter(id) : null;
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-
-    if (pinLoc) {
-        // Nutze die korrekte Panzoom-Methode, die auf die Pin-Mitte zentriert
-        panzoomInstance.zoomToPoint(targetScale, pinLoc.cx, pinLoc.cy, { animate: true });
-        console.log(`🔍 Fokus auf ${id} bei x:${Math.round(pinLoc.cx)} y:${Math.round(pinLoc.cy)} mit s:${targetScale.toFixed(2)}`);
-    } else {
-        // Wenn kein Pin fokussiert werden soll, die Karte auf die anfängliche Position zurücksetzen.
-        panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: true });
-        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
-    }
-  }); // waitForImage
+  waitForImage(mapImgEl, () => {
+    // 1) Fit & minScale berechnen
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
+    
+    // 2) Panzoom initialisieren (immer neu)
+    panzoomInstance = Panzoom(mapEl, {
+      contain: 'outside',
+      maxScale: 4,
+      startScale: fit.scale,
+      startX: fit.x,
+      startY: fit.y,
+      animate: true,
+      duration: 350,
+      easing: 'ease-in-out',
+      minScale: minScale
+    });
+    
+    // 3) Ziel-ID bestimmen & Pin highlighten
+    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
+    
+    if (id) {
+      lastFocusId = id;
+      highlightPin(id);
+    } else {
+      clearHighlight();
+    }
+    
+    const pinLoc = id ? getPinCenter(id) : null;
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    
+    if (pinLoc) {
+      panzoomInstance.zoomToPoint(targetScale, pinLoc.cx, pinLoc.cy, { animate: true });
+      console.log(`🔍 Fokus auf ${id} bei x:${Math.round(pinLoc.cx)} y:${Math.round(pinLoc.cy)} mit s:${targetScale.toFixed(2)}`);
+    } else {
+      panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: true });
+      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+    }
+  }); // waitForImage
 }
+
+
+// Füge diesen Block GANZ am Ende deines <script>-Tags hinzu
+// Er wird nur einmal beim Laden der Seite registriert
+wrapEl.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (panzoomInstance) { // Stellt sicher, dass die Instanz existiert
+    panzoomInstance.zoomWithWheel(e, { animate: true });
+  }
+}, { passive: false });
   /* ====== LISTE & DATEN ====== */
 const categories = [
   // Kids / Freizeit
@@ -937,6 +914,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
