@@ -933,11 +933,13 @@ function getPinCenter(id) {
 
   /* ====== Start ====== */
   render();
-  openSheet();
   showList(); // immer mit Liste starten
+  openSheet();
+  if (isMobile()) showMap();
 </script>
 </body>
 </html>
+
 
 
 
