@@ -491,6 +491,7 @@ function showMap(focusId = null) {
           animate: true,
           duration: 350,
           easing: 'ease-in-out'
+          transformOrigin: { x: 0, y: 0 }
         });
         // Event Listener nur einmalig hinzufügen
         wrapEl.addEventListener('wheel', (e) => {
@@ -936,6 +937,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
