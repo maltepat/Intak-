@@ -738,7 +738,7 @@ function renderList(areaIds){
     btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
 
     const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); };
 
     actions.append(btn1, btn2);
     body.append(h, meta, txt, actions);
@@ -956,6 +956,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
