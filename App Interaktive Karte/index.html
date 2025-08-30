@@ -700,7 +700,7 @@ function renderList(areaIds){
 
     const card = document.createElement('div'); 
     card.className = 'card';
-    if (id === lastFocusId) card.classList.add('selected'); // << neu
+    if (id === lastFocusId) card.classList.add('selected');
 
     const icon = document.createElement('img'); 
     icon.src = `icons/${id}Icon.png`; 
@@ -715,20 +715,21 @@ function renderList(areaIds){
 
     const actions = document.createElement('div'); actions.className = 'actions';
     const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
-    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
+    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); };
 
     const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); };
 
     actions.append(btn1, btn2);
     body.append(h, meta, txt, actions);
     card.append(icon, body);
     list.appendChild(card);
 
-    // Klick auf die Karte selbst markiert die Auswahl (für späteren Tab-Wechsel auf "Karte")
+    // Klick auf die Karte selbst markiert die Auswahl
     card.addEventListener('click', () => {
       lastFocusId = id;
-      // optisch updaten
+      openSheet(id);
+      // optische Aktualisierung
       document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
       card.classList.add('selected');
     });
@@ -936,6 +937,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
