@@ -371,17 +371,11 @@ function getTfSafe() {
       setOptsSafe({ minScale: fit.scale });
       currentMinScale = fit.scale;
 
-const targetScale = Math.max(fit.scale, TARGET_SCALE);
-const id = lastFocusId || getFocusFromURL();
-const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
-
-// statt applyTransform(...):
-if (tf && panzoomInstance) {
-  panzoomInstance.pan(tf.x, tf.y, { animate: true, duration: 300 });
-  setTimeout(() => {
-    panzoomInstance.zoom(tf.scale, { animate: true, duration: 300 });
-  }, 50);
-}
+      const targetScale = Math.max(fit.scale, TARGET_SCALE);
+      const id = lastFocusId || getFocusFromURL();
+      const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
+      applyTransform(tf, false);
+    }
   });
 }
 
@@ -394,6 +388,54 @@ if (tf && panzoomInstance) {
     return { scale, x, y };
   }
   
+function computeTransformForPin(id, scale) {
+  const c = getPinCenter(id);
+  if (!c) return null;
+
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // 1. Berechne die gewünschte Pan-Position.
+  // Pan-Wert ist der Unterschied zwischen Viewport-Mitte und dem skalierten Pin-Mittelpunkt.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+
+  const mapW = MAP_W * scale;
+  const mapH = MAP_H * scale;
+
+  // 2. Bounding (Begrenzung): Stelle sicher, dass die Karte nicht aus dem Sichtfeld rutscht.
+  let minX, maxX, minY, maxY;
+  
+  // Begrenzung für X
+  if (mapW >= rect.width) {
+    // Karte ist breiter als der Viewport
+    minX = rect.width - mapW;
+    maxX = 0;
+  } else {
+    // Karte ist schmaler, zentriere sie
+    minX = maxX = (rect.width - mapW) / 2;
+  }
+
+  // Begrenzung für Y
+  if (mapH >= rect.height) {
+    // Karte ist höher als der Viewport
+    minY = rect.height - mapH;
+    maxY = 0;
+  } else {
+    // Karte ist kürzer, zentriere sie
+    minY = maxY = (rect.height - mapH) / 2;
+  }
+
+  // 3. Klammere die berechneten Pan-Werte, damit sie innerhalb der Grenzen bleiben.
+  // Eine kleine Pufferzone (BLEED) kann die Animation weicher machen.
+  const BLEED = 10;
+  const finalX = clamp(x, minX - BLEED, maxX + BLEED);
+  const finalY = clamp(y, minY - BLEED, maxY + BLEED);
+
+  return { x: finalX, y: finalY, scale };
+}
+
 // Hilfsfunktion zum Begrenzen eines Werts
 function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
@@ -472,7 +514,7 @@ function showMap(focusId = null) {
     const minScale = fit.scale;
     currentMinScale = minScale;
 
-    // 2) Panzoom initialisieren/aktualisieren
+    // 2) Panzoom initialisieren (falls noch nicht geschehen)
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
         contain: 'outside',
@@ -484,61 +526,71 @@ function showMap(focusId = null) {
         duration: 350,
         easing: 'ease-in-out'
       });
-
       // Desktop: Mausrad-Zoom
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e, { animate: true });
       }, { passive: false });
-
+    
       window.panzoomInstance = panzoomInstance;
       window.wrapEl = wrapEl;
       window.mapEl = mapEl;
     } else {
-      // Bei erneutem Öffnen: minScale aktualisieren und erst mal auf fit springen
-      panzoomInstance.setOptions({ minScale: minScale, animate: true });
-      panzoomInstance.setTransform(fit); // saubere Ausgangsbasis
+        // Bei erneuter Ansicht: minScale aktualisieren
+        panzoomInstance.setOptions({ minScale: minScale, animate: true });
     }
 
     // 3) Ziel-ID bestimmen & Pin highlighten
     const rawId = focusId || lastFocusId || getFocusFromURL() || null;
     const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
 
-    if (id) { lastFocusId = id; highlightPin(id); } else { clearHighlight(); }
+    if (id) {
+      lastFocusId = id;
+      highlightPin(id);
+    } else {
+      clearHighlight();
+    }
 
     // 4) Transformation berechnen
-    const baseTargetScale = (typeof TARGET_SCALE === 'number') ? TARGET_SCALE : 1.8;
-    const targetScale = Math.max(minScale, baseTargetScale);
-
-    let targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
-    if (!targetTf) targetTf = { ...fit, scale: targetScale }; // Fallback
-
-    // 5) Transformation anwenden (Pan → kurze Pause → Zoom)
-    if (panzoomInstance && typeof panzoomInstance.pan === 'function' && typeof panzoomInstance.zoom === 'function') {
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+    
+    // 5) Transformation anwenden
+    if (targetTf) {
+      // ✅ Korrigierte Methode: Pan-Befehl separat aufrufen
       panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
+      
+      // ✅ Verzögerung: Zoom-Befehl mit einer kleinen Pause aufrufen
+      // Dies stellt sicher, dass Panzoom den Pan-Befehl verarbeitet,
+      // bevor der Zoom-Befehl eintrifft.
       setTimeout(() => {
         panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
-      }, 50);
-      if (id) console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+      }, 50); // 50 Millisekunden Verzögerung
+
+      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
     } else {
-      console.warn('[MAP] Pan/Zoom noch nicht bereit, gewünschtes tf:', targetTf);
+      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
     }
   }); // waitForImage
 }
 
 // Überarbeitete Funktion: Entfernung der unnötigen Begrenzung.
-
-  function computeTransformForPin(id, scale) {
+function computeTransformForPin(id, scale) {
   const c = getPinCenter(id);
   if (!c) return null;
+
   const rect = wrapEl.getBoundingClientRect();
   const viewCx = rect.width / 2;
   const viewCy = rect.height / 2;
+
+  // Pan-Werte sind der Unterschied zwischen der Mitte des Viewports
+  // und dem skalierten Pin-Mittelpunkt.
   const x = viewCx - (c.cx * scale);
   const y = viewCy - (c.cy * scale);
+  
+  // Panzoom übernimmt die Begrenzung, wir müssen nur die reinen Werte liefern
   return { x, y, scale };
 }
-
   
   /* ====== LISTE & DATEN ====== */
 const categories = [
