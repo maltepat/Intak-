@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="de">
 <head>
@@ -435,7 +436,7 @@ function getFocusFromURL() {
     return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
   } catch { return null; }
 }
-const TARGET_SCALE = 1.1; // zentral definieren
+const TARGET_SCALE = 0.8; // zentral definieren
 
 function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
 
@@ -950,6 +951,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
