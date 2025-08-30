@@ -396,14 +396,14 @@ function computePinLocation(id) {
   const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
   const dx = toNum(el.dataset.x);
   const dy = toNum(el.dataset.y);
-  const wp = toNum(el.dataset.wp);
 
   if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
-    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+    // Die Mitte des Pins ist die Pin-Position plus die Hälfte der Pin-Breite/Höhe.
+    const pinWidth = el.offsetWidth;
+    const pinHeight = el.offsetHeight;
 
-    const x = ((dx + halfW_pct_of_W) / 100) * MAP_W;
-    const y = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+    const x = ((dx / 100) * MAP_W) + (pinWidth / 2);
+    const y = ((dy / 100) * MAP_H) + (pinHeight / 2);
     return { x, y };
   }
   return null;
@@ -440,7 +440,7 @@ function getFocusFromURL() {
     return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
   } catch { return null; }
 }
-const TARGET_SCALE = 1.8; // zentral definieren
+const TARGET_SCALE = 1.3; // zentral definieren
 
 function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
 
@@ -949,6 +949,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
