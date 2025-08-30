@@ -33,52 +33,63 @@
   .actions { margin-top:8px; display:flex; gap:8px; }
   .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
   .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
+/* Karte */
+.mapwrap {
+  display:none;
+  height:calc(100vh - 112px);
+  overflow:hidden;
+  position:relative;
+  background:#000;
+  touch-action:none;
+  overscroll-behavior: contain;
+}
+.mapwrap.active { display:block; }
 
-  /* Karte */
-  .mapwrap {
-    display:none;
-    height:calc(100vh - 112px);
-    overflow:hidden;
-    position:relative;
-    background:#000;
-    touch-action:none;
-    overscroll-behavior: contain;
-  }
-  .mapwrap.active { display:block; }
+.map {
+  position:relative;
+  width:1920px;
+  height:1080px;
+  touch-action:none;
+  will-change: transform;
+  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
+}
 
-  .map {
-    position:relative;
-    width:1920px;
-    height:1080px;
-    touch-action:none;
-    will-change: transform;
-  }
+.map-img {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: contain;     
+  display:block;
+  user-select:none;
+  pointer-events:none;
+}
 
-  .map-img {
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    object-fit:fill;
-    display:block;
-    user-select:none;
-    pointer-events:none;
-  }
 
 .pin {
   position: absolute;
-  /* Entferne die Zentrierung */
-  transform: none;         /* <- wichtig */
-  /* mach die Größe wieder relativ, wenn du das alte Verhalten liebst */
+  /* deine bisherige Boxgröße in % bleibt gleich */
   width: 3.05%;
   height: auto;
   cursor: pointer;
+
+  /* Bild in der Box zentrieren */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* weiterhin KEIN translate, weil getPinCenter die Box-Mitte berechnet */
+  transform: none;
+  transform-origin: center center;
 }
+
 .pin img {
-  width: 70%;
+  width: 70%;   /* 👈 wieder wie vorher */
   height: auto;
   pointer-events: none;
 }
+
+
 
   /* Pin-Highlight */
 .pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
@@ -114,7 +125,7 @@
 
     body.fullscreen-map { overflow:hidden; }
 
-    body.fullscreen-map . {
+body.fullscreen-map .mapwrap {
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -310,11 +321,39 @@ function getTfSafe() {
 
 function applyTransform(tf, animate = true) {
   if (!panzoomInstance || !tf) return;
-  const opts = { animate };
-  // Reihenfolge ist wichtig: erst zoom, dann pan
-  if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, opts);
-  if (typeof panzoomInstance.pan  === 'function') panzoomInstance.pan(tf.x, tf.y, opts);
+  setOptsSafe({ animate });
+  if (typeof panzoomInstance.setTransform === 'function') {
+    panzoomInstance.setTransform({ x: tf.x, y: tf.y, scale: tf.scale });
+  } else {
+    // Fallback (sollte bei 4.5.1 eigentlich nicht nötig sein)
+    if (typeof panzoomInstance.zoom === 'function') panzoomInstance.zoom(tf.scale, { animate });
+    if (typeof panzoomInstance.pan  === 'function') panzoomInstance.pan(tf.x, tf.y, { animate });
+  }
 }
+
+function animTo(target, duration = 350) {
+  if (!panzoomInstance || !target) return;
+  const start = getTfSafe() || { x: 0, y: 0, scale: currentMinScale };
+
+  setOptsSafe({ animate: false });
+
+  const t0 = performance.now();
+  function tick(now) {
+    const t = Math.min(1, (now - t0) / duration);
+    const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
+    const x = start.x + (target.x - start.x) * k;
+    const y = start.y + (target.y - start.y) * k;
+    const s = start.scale + (target.scale - start.scale) * k;
+
+    applyTransform({ x, y, scale: s }, false);
+
+    if (t < 1) requestAnimationFrame(tick);
+    else setOptsSafe({ animate: true });
+  }
+  requestAnimationFrame(tick);
+}
+  
+
 
   const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
@@ -349,19 +388,32 @@ function applyTransform(tf, animate = true) {
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
-function onVVChange() {
+
+  function onVVChange() {
   const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   wrapEl.style.height = h + 'px';
   setFullscreenVH();
-  if (panzoomInstance) {
-    requestAnimationFrame(() => {
-      const t = getTfSafe();              // ⬅️ statt panzoomInstance.getTransform()
-      if (!t) return;
-      // ⬅️ statt getOptions(): wir tracken minScale selbst über currentMinScale
-      const min = currentMinScale;
-      if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-    });
-  }
+
+  if (!panzoomInstance) return;
+
+  // Bei starken Änderungen am unteren Ende wieder auf Fit oder letzten Fokus justieren
+  requestAnimationFrame(() => {
+    const min = currentMinScale;
+    const t = getTfSafe();
+    if (!t) return;
+
+    // Wenn wir sehr nahe an minScale sind, frisch fitten
+    if (Math.abs(t.scale - min) < 0.03) {
+      const fit = computeFit(START_X_PERCENT);
+      setOptsSafe({ minScale: fit.scale });
+      currentMinScale = fit.scale;
+
+      const targetScale = Math.max(fit.scale, TARGET_SCALE);
+      const id = lastFocusId || getFocusFromURL();
+      const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
+      applyTransform(tf, false);
+    }
+  });
 }
 
   /* ====== Fit-Funktionen ====== */
@@ -372,43 +424,50 @@ function onVVChange() {
     const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
     return { scale, x, y };
   }
-
-function computeTransformForPin(id, scale = 2.5) {
+  
+function computeTransformForPin(id, scale) {
   const c = getPinCenter(id);
   if (!c) return null;
 
-  const rect   = wrapEl.getBoundingClientRect();
+  const rect = wrapEl.getBoundingClientRect();
   const viewCx = rect.width  / 2;
   const viewCy = rect.height / 2;
 
-  const desiredX = viewCx - c.cx * scale;
-  const desiredY = viewCy - c.cy * scale;
+  // Wunschposition: Pin-Mittelpunkt exakt ins Zentrum
+  let x = viewCx - c.cx * scale;
+  let y = viewCy - c.cy * scale;
 
-  const BLEED = 200;
-  const minX = rect.width  - MAP_W * scale - BLEED;
-  const minY = rect.height - MAP_H * scale - BLEED;
-  const maxX = +BLEED;
-  const maxY = +BLEED;
+  const mapW = MAP_W * scale;
+  const mapH = MAP_H * scale;
 
-  const x = Math.min(maxX, Math.max(minX, desiredX));
-  const y = Math.min(maxY, Math.max(minY, desiredY));
+  // kleine Sicherheitskante (optional)
+  const BLEED = 8;
 
-  // console.log('[TF]', { id, scale, cx:c.cx, cy:c.cy, desiredX, desiredY, minX, maxX, minY, maxY, x, y });
-  return { x, y, scale };
-}
-
-
-
-
-function _getTf() {
-  if (!panzoomInstance) return null;
-  if (typeof panzoomInstance.getTransform === 'function') {
-    return panzoomInstance.getTransform();
+  // --- X: Bounds berechnen ---
+  let minX, maxX;
+  if (mapW >= rect.width) {
+    // Karte größer → klassisch zwischen (rechts bündig) und (links bündig)
+    minX = rect.width - mapW - BLEED; // maximal nach links verschoben
+    maxX = 0 + BLEED;                 // maximal nach rechts verschoben
+  } else {
+    // Karte kleiner → exakt mittig "einklemmen"
+    const centerX = (rect.width - mapW) / 2;
+    minX = maxX = centerX;            // kein Drift, immer mittig
   }
-  // Fallback für andere Panzoom-Varianten:
-  const scale = typeof panzoomInstance.getScale === 'function' ? panzoomInstance.getScale() : 1;
-  const pan   = typeof panzoomInstance.getPan   === 'function' ? panzoomInstance.getPan()   : { x: 0, y: 0 };
-  return { x: pan.x, y: pan.y, scale };
+  x = Math.min(maxX, Math.max(minX, x));
+
+  // --- Y: Bounds berechnen ---
+  let minY, maxY;
+  if (mapH >= rect.height) {
+    minY = rect.height - mapH - BLEED;
+    maxY = 0 + BLEED;
+  } else {
+    const centerY = (rect.height - mapH) / 2;
+    minY = maxY = centerY;
+  }
+  y = Math.min(maxY, Math.max(minY, y));
+
+  return { x, y, scale };
 }
 
 
@@ -446,6 +505,29 @@ function getFocusFromURL() {
     return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
   } catch { return null; }
 }
+const TARGET_SCALE = 1.8; // zentral definieren
+
+function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
+
+function logTf(tag, tf){
+  if(!tf) return console.log(tag, '— no tf');
+  console.log(tag, { x: Math.round(tf.x), y: Math.round(tf.y), s: +tf.scale.toFixed(3) });
+}
+
+function debugFocus(id, scale){
+  const r = wrapEl.getBoundingClientRect();
+  const c = getPinCenter(id);
+  const tf = computeTransformForPin(id, scale);
+  console.table({
+    id,
+    view: JSON.stringify(logRect(r)),
+    cx: Math.round(c?.cx ?? -1),
+    cy: Math.round(c?.cy ?? -1),
+    scale: scale,
+    tf_x: Math.round(tf?.x ?? 0),
+    tf_y: Math.round(tf?.y ?? 0)
+  });
+}
   
 function showMap(focusId = null) {
   // Tabs umschalten
@@ -454,7 +536,7 @@ function showMap(focusId = null) {
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobil: Vollbild & Höhe
+  // Mobil: Vollbild & Höhe setzen
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -465,83 +547,63 @@ function showMap(focusId = null) {
   const mapImgEl = document.querySelector('.map-img');
 
   waitForImage(mapImgEl, () => {
-    // 1) Fit & minScale
+    // 1) Fit & minScale berechnen und merken
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
+    currentMinScale = minScale;
 
-    // 2) Ziel-ID ermitteln (mit Alias-Auflösung)
-    const rawId = focusId || lastFocusId || null;
-    const id = resolveId ? resolveId(rawId) : rawId;
+    // 2) Ziel-ID (mit optionaler Alias-Auflösung)
+    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
 
-    // 3) Ziel-Transform berechnen (Zoom leicht > Fit)
-    const TARGET_SCALE = 1.8;               // 👈 HIER stellst du die gewünschte Zoomstärke ein
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : null;
-
-    // 4) Panzoom EINMAL initialisieren, sonst wiederverwenden
+    // 3) Panzoom EINMAL initialisieren
     if (!panzoomInstance) {
       panzoomInstance = Panzoom(mapEl, {
-        contain: 'none',                    // wichtig: nicht 'outside', damit Fokus nicht weggeschnitten wird
-        maxScale: 3,                        // optional: Obergrenze (kannst du anpassen)
+        contain: 'none',
+        maxScale: 4,
         startScale: fit.scale,
         startX: fit.x,
         startY: fit.y,
         animate: true
       });
 
-      // Mausrad-Zoom (Desktop)
+      // Desktop: Mausrad-Zoom
       wrapEl.addEventListener('wheel', (e) => {
         e.preventDefault();
         panzoomInstance.zoomWithWheel(e);
       }, { passive: false });
+
+      // Konsistenter Start-Zustand (wichtig für Mobile-Viewports)
+      applyTransform(fit, false);
+      setOptsSafe({ minScale: fit.scale, animate: true });
+
+      // optional fürs Debuggen
+      window.panzoomInstance = panzoomInstance;
+      window.wrapEl = wrapEl;
+      window.mapEl  = mapEl;
     }
 
-    // 5) minScale updaten + animiert auf Ziel gehen
-    if (typeof panzoomInstance.setOptions === 'function') {
-      panzoomInstance.setOptions({ minScale, animate: true });
-    }
+    // 4) minScale nachziehen (falls showMap erneut aufgerufen wird)
+    setOptsSafe({ minScale, animate: true });
 
-    // Sanfte Animation: von Ist → Ziel
-    function animTo(target, duration = 350) {
-      const start = panzoomInstance.getTransform
-        ? panzoomInstance.getTransform()
-        : { x: 0, y: 0, scale: minScale };
-
-      const t0 = performance.now();
-      function tick(now) {
-        const t = Math.min(1, (now - t0) / duration);
-        const k = 0.5 - 0.5 * Math.cos(Math.PI * t); // easeInOutCosine
-        const x = start.x + (target.x - start.x) * k;
-        const y = start.y + (target.y - start.y) * k;
-        const s = start.scale + (target.scale - start.scale) * k;
-        panzoomInstance.setTransform({ x, y, scale: s });
-        if (t < 1) requestAnimationFrame(tick);
-      }
-      requestAnimationFrame(tick);
-    }
+    // 5) Ziel bestimmen (leicht über Fit zoomen oder auf Pin fokussieren)
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale)
+                        : { ...fit, scale: targetScale };
 
     // 6) Anwenden (mit Fallback: Fit)
-    if (targetTf) {
-      animTo(targetTf, 350);
-      lastFocusId = id;
-      if (typeof highlightPin === 'function') highlightPin(id);
-      console.log(`🔍 Focus ${id} → x:${targetTf.x.toFixed(1)} y:${targetTf.y.toFixed(1)} s:${targetTf.scale.toFixed(2)}`);
-    } else {
-      animTo(fit, 300);
-      if (id) console.warn('Pin nicht gefunden oder ohne Koordinaten:', id);
-    }
-  });
-}
+    animTo(targetTf || fit, 350);
 
-
-    // 7) Highlight & State
+    // 7) Status/Highlight aktualisieren
     if (id) {
       lastFocusId = id;
       if (typeof highlightPin === 'function') highlightPin(id);
+      console.log(`🔍 Focus ${id} → x:${Math.round((targetTf?.x ?? fit.x))} y:${Math.round((targetTf?.y ?? fit.y))} s:${(targetTf?.scale ?? fit.scale).toFixed(2)}`);
+    } else {
+      console.log('[MAP] kein spezifischer Fokus – auf angenehmen Überblick gezoomt.');
     }
   }); // waitForImage
 }
-
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -775,36 +837,172 @@ function renderList(areaIds){
   }
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
-  /* ====== Pin-Fokus ====== */
-
 
 function getPinCenter(id) {
-  const el  = document.getElementById(`pin-${id}`);
+  const el = document.getElementById(`pin-${id}`);
   if (!el) return null;
 
-  const img = el.querySelector('img');
+  // robustes Parsen (unterstützt "54,4" u. "54.4")
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
 
-  // Position der Pin-Box relativ zur Karte (Pixel, ohne Transform)
-  const baseLeft = el.offsetLeft;
-  const baseTop  = el.offsetTop;
+  const dx = toNum(el.dataset.x);   // left in %
+  const dy = toNum(el.dataset.y);   // top in %
+  const wp = toNum(el.dataset.wp);  // box-breite in % (von MAP_W)
 
-  // Falls ein Bild existiert, nimm exakt dessen Mitte.
-  // (img.offsetLeft/Top sind relativ zur Pin-Box.)
-  let cx, cy;
-  if (img) {
-    cx = baseLeft + img.offsetLeft + img.offsetWidth  / 2;
-    cy = baseTop  + img.offsetTop  + img.offsetHeight / 2;
-  } else {
-    // Fallback: Mitte der Box
-    cx = baseLeft + el.offsetWidth  / 2;
-    cy = baseTop  + el.offsetHeight / 2;
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    // halbe Box-Breite in %-von-MAP_W
+    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+
+    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
+    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
+    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+
+    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+    return { cx, cy };
   }
 
-  // Debug hilft beim Gegencheck
-  // console.log('[CENTER]', id, { baseLeft, baseTop, imgW: img?.offsetWidth, imgH: img?.offsetHeight, cx, cy });
-
+  // Fallback, falls mal kein data-x/y gesetzt ist:
+  const cx = el.offsetLeft + el.offsetWidth  / 2;
+  const cy = el.offsetTop  + el.offsetHeight / 2;
   return { cx, cy };
 }
+// ===== DEBUG-KIT: alles zur Konsole =====
+(function () {
+  // Hilfsfunktionen (ändern nichts am Verhalten)
+  function getRect() {
+    const r = wrapEl.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  }
+  function getMapSize(scale) {
+    return { w: Math.round(MAP_W * scale), h: Math.round(MAP_H * scale) };
+  }
+  function getDomCenter(id) {
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    return {
+      cx: el.offsetLeft + el.offsetWidth / 2,
+      cy: el.offsetTop  + el.offsetHeight / 2,
+      note: "DOM-offset (ignoriert data-%)"
+    };
+  }
+  function getPctCenter(id) {
+    // das ist exakt deine getPinCenter-Logik – einmal separat, nur zum Vergleichen
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+    const dx = toNum(el.dataset.x);
+    const dy = toNum(el.dataset.y);
+    const wp = toNum(el.dataset.wp);
+    if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+      const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+      const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+      const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+      const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+      return { cx, cy, note: "data-% gerechnet" };
+    }
+    return null;
+  }
+  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+
+  // 1) Gesamtsnapshot des aktuellen Zustands
+  function snapshot(tag = 'SNAP') {
+    const tf = getTfSafe();
+    const r  = wrapEl.getBoundingClientRect();
+    const min = currentMinScale;
+    console.group(`[${tag}]`);
+    console.table({
+      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      transform_x: Math.round(tf?.x ?? 0),
+      transform_y: Math.round(tf?.y ?? 0),
+      scale: +(tf?.scale ?? 0).toFixed(3),
+      minScale: +min.toFixed(3),
+      map_px: `${Math.round(MAP_W*(tf?.scale||1))}×${Math.round(MAP_H*(tf?.scale||1))}`,
+      contain: (panzoomInstance?.getOptions?.().contain) || '(n/a)'
+    });
+    console.groupEnd();
+  }
+
+  // 2) Details zu einem Pin + Ziel-Transform samt Clamp-Grenzen
+  function focusPlan(id, scale = Math.max(currentMinScale, (typeof TARGET_SCALE === 'number' ? TARGET_SCALE : 1.8))) {
+    const pct = getPctCenter(id);
+    const dom = getDomCenter(id);
+    const r   = wrapEl.getBoundingClientRect();
+    const mapW = MAP_W * scale, mapH = MAP_H * scale;
+
+    // Wunsch: Mittelpunkt ins Zentrum
+    let wantX = r.width/2  - (pct?.cx ?? dom?.cx ?? 0) * scale;
+    let wantY = r.height/2 - (pct?.cy ?? dom?.cy ?? 0) * scale;
+
+    // deine symmetrischen Bounds (so wie in deiner aktuellen computeTransformForPin-Version)
+    const minX = (mapW > r.width)  ? (r.width  - mapW) : (r.width  - mapW) / 2;
+    const maxX = (mapW > r.width)  ? 0                 : (r.width  - mapW) / 2;
+    const minY = (mapH > r.height) ? (r.height - mapH) : (r.height - mapH) / 2;
+    const maxY = (mapH > r.height) ? 0                 : (r.height - mapH) / 2;
+
+    const finalX = clamp(wantX, minX, maxX);
+    const finalY = clamp(wantY, minY, maxY);
+
+    console.group(`[FOCUS PLAN] ${id}`);
+    console.table({
+      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      target_scale: +scale.toFixed(3),
+      pin_cx_pct: pct?.cx?.toFixed?.(1) ?? '—',
+      pin_cy_pct: pct?.cy?.toFixed?.(1) ?? '—',
+      pin_cx_dom: dom?.cx?.toFixed?.(1) ?? '—',
+      pin_cy_dom: dom?.cy?.toFixed?.(1) ?? '—',
+      wantX: Math.round(wantX),
+      wantY: Math.round(wantY),
+      minX: Math.round(minX),
+      maxX: Math.round(maxX),
+      minY: Math.round(minY),
+      maxY: Math.round(maxY),
+      finalX: Math.round(finalX),
+      finalY: Math.round(finalY),
+      mapW: Math.round(mapW),
+      mapH: Math.round(mapH)
+    });
+    console.groupEnd();
+
+    return { x: finalX, y: finalY, scale };
+  }
+
+  // 3) Direkter Test: berechne + animiere (nutzt deine animTo/applyTransform)
+  function animFocusDebug(id, scale) {
+    const tf = focusPlan(id, scale);
+    if (!tf) return;
+    animTo(tf, 350);
+    if (typeof highlightPin === 'function') highlightPin(id);
+    lastFocusId = id;
+  }
+
+  // 4) Vergleich mehrerer Sprünge nacheinander
+  async function jumpSeq(ids, scale) {
+    for (const id of ids) {
+      console.log('%c[JUMP]', 'color:#0a0', id);
+      const tf = focusPlan(id, scale);
+      animTo(tf, 300);
+      if (typeof highlightPin === 'function') highlightPin(id);
+      lastFocusId = id;
+      await new Promise(r => setTimeout(r, 380));
+    }
+  }
+
+  // 5) Global verfügbar machen
+  window.__mapDbg = {
+    snapshot,         // __mapDbg.snapshot()
+    plan: focusPlan,  // __mapDbg.plan('D3', 1.8)
+    focus: animFocusDebug, // __mapDbg.focus('D3', 1.8)
+    jumpSeq,          // __mapDbg.jumpSeq(['L1','Sandburg','D3','WS'], 1.8)
+    domCenter: getDomCenter,
+    pctCenter: getPctCenter
+  };
+
+  // Komfort: Tastenkürzel
+  window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'd') __mapDbg.snapshot('KEY D');
+  });
+})();
 
 
 
@@ -814,6 +1012,25 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
