@@ -539,106 +539,89 @@ function debugFocus(id, scale){
 }
   
 function showMap(focusId = null) {
-  // Tabs umschalten & UI aktualisieren
-  document.getElementById('tab-map').classList.add('active');
-  document.getElementById('tab-list').classList.remove('active');
-  wrapEl.classList.add('active');
-  document.getElementById('list').style.display = 'none';
+  // Tabs umschalten & UI aktualisieren
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-  // Mobil: Vollbild & Höhe setzen
-  if (isMobile()) {
-    enterMapFullscreen();
-    setFullscreenVH();
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-    enableVHWatchers();
-  }
+  // Mobil: Vollbild & Höhe setzen
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
+  }
 
-  const mapImgEl = document.querySelector('.map-img');
+  const mapImgEl = document.querySelector('.map-img');
 
-  waitForImage(mapImgEl, () => {
-    // 1) Fit & minScale berechnen
-    const fit = computeFit(START_X_PERCENT);
-    const minScale = fit.scale;
-    currentMinScale = minScale;
+  waitForImage(mapImgEl, () => {
+    // 1) Fit & minScale berechnen
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
+    currentMinScale = minScale;
 
-    // 2) Panzoom initialisieren (falls noch nicht geschehen)
-    if (!panzoomInstance) {
-      panzoomInstance = Panzoom(mapEl, {
-        contain: 'outside',
-        maxScale: 4,
-        startScale: fit.scale,
-        startX: fit.x,
-        startY: fit.y,
-        animate: true,
-        duration: 350,
-        easing: 'ease-in-out'
-      });
-      // Desktop: Mausrad-Zoom
-      wrapEl.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        panzoomInstance.zoomWithWheel(e, { animate: true });
-      }, { passive: false });
-    
-      window.panzoomInstance = panzoomInstance;
-      window.wrapEl = wrapEl;
-      window.mapEl = mapEl;
-    } else {
-        // Bei erneuter Ansicht: minScale aktualisieren
-        panzoomInstance.setOptions({ minScale: minScale, animate: true });
-    }
+    // 2) Panzoom initialisieren (falls noch nicht geschehen)
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        contain: 'outside',
+        maxScale: 4,
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
+      // Desktop: Mausrad-Zoom
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e, { animate: true });
+      }, { passive: false });
+    
+      window.panzoomInstance = panzoomInstance;
+      window.wrapEl = wrapEl;
+      window.mapEl = mapEl;
+    } else {
+        // Bei erneuter Ansicht: minScale aktualisieren
+        panzoomInstance.setOptions({ minScale: minScale, animate: true });
+    }
 
-    // 3) Ziel-ID bestimmen & Pin highlighten
-    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
-    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
+    // 3) Ziel-ID bestimmen & Pin highlighten
+    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
 
-    if (id) {
-      lastFocusId = id;
-      highlightPin(id);
-    } else {
-      clearHighlight();
-    }
+    if (id) {
+      lastFocusId = id;
+      highlightPin(id);
+    } else {
+      clearHighlight();
+    }
 
-    // 4) Transformation berechnen
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
-    
-    // 5) Transformation anwenden
-    if (targetTf) {
-      // ✅ Korrigierte Methode: Pan-Befehl separat aufrufen
-      panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
-      
-      // ✅ Verzögerung: Zoom-Befehl mit einer kleinen Pause aufrufen
-      // Dies stellt sicher, dass Panzoom den Pan-Befehl verarbeitet,
-      // bevor der Zoom-Befehl eintrifft.
-      setTimeout(() => {
-        panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
-      }, 50); // 50 Millisekunden Verzögerung
+    // 4) Transformation berechnen
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+    
+    // 5) Transformation anwenden
+    if (targetTf) {
+      // ✅ Korrigierte Methode: Pan-Befehl separat aufrufen
+      panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
+      
+      // ✅ Verzögerung: Zoom-Befehl mit einer kleinen Pause aufrufen
+      // Dies stellt sicher, dass Panzoom den Pan-Befehl verarbeitet,
+      // bevor der Zoom-Befehl eintrifft.
+      setTimeout(() => {
+        panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
+      }, 50); // 50 Millisekunden Verzögerung
 
-      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
-    } else {
-      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
-    }
-  }); // waitForImage
-}
-
-// Überarbeitete Funktion: Entfernung der unnötigen Begrenzung.
-function computeTransformForPin(id, scale) {
-  const c = getPinCenter(id);
-  if (!c) return null;
-
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width / 2;
-  const viewCy = rect.height / 2;
-
-  // Pan-Werte sind der Unterschied zwischen der Mitte des Viewports
-  // und dem skalierten Pin-Mittelpunkt.
-  const x = viewCx - (c.cx * scale);
-  const y = viewCy - (c.cy * scale);
-  
-  // Panzoom übernimmt die Begrenzung, wir müssen nur die reinen Werte liefern
-  return { x, y, scale };
+      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+    } else {
+      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+    }
+  }); // waitForImage
 }
   
+
   /* ====== LISTE & DATEN ====== */
 const categories = [
   // Kids / Freizeit
@@ -1047,6 +1030,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
