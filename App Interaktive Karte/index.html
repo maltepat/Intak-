@@ -752,23 +752,32 @@ function renderList(areaIds){
 
 
 function getPinCenter(id) {
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
 
-  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-  const dx = toNum(el.dataset.x);
-  const dy = toNum(el.dataset.y);
+    const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+    const dx = toNum(el.dataset.x);
+    const dy = toNum(el.dataset.y);
+    const wp = toNum(el.dataset.wp); // Pin-Breite in %
 
-  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    // Pin-Größe aus CSS-Prozentwert
-    const pinWidth = (3.05 / 100) * MAP_W;
-    const pinHeight = (3.05 / 100) * MAP_W;
+    if (!Number.isNaN(dx) && !Number.isNaN(dy) && !Number.isNaN(wp)) {
+        // Die Pin-Breite wird korrekt aus data-wp berechnet
+        const pinWidth = (wp / 100) * MAP_W;
 
-    const cx = ((dx / 100) * MAP_W) + (pinWidth / 2);
-    const cy = ((dy / 100) * MAP_H) + (pinHeight / 2);
-    return { cx, cy };
-  }
-  return null;
+        // Die Pin-Höhe wird aus der Pin-Breite und dem Seitenverhältnis des Bildes berechnet
+        // Das img-Element innerhalb des Pins hat eine Breite von 70%
+        const imgEl = el.querySelector('img');
+        const imgRatio = imgEl.naturalWidth / imgEl.naturalHeight;
+        const pinHeight = pinWidth * (el.offsetHeight / el.offsetWidth); // Verwendet das tatsächliche Seitenverhältnis der Pin-Box
+        
+        // Oder sicherer:
+        // const pinHeight = (wp / 100) * MAP_H; // Bei quadratischer Pin-Box
+
+        const cx = ((dx / 100) * MAP_W) + (pinWidth / 2);
+        const cy = ((dy / 100) * MAP_H) + (pinHeight / 2);
+        return { cx, cy };
+    }
+    return null;
 }
   
 // ===== DEBUG-KIT: alles zur Konsole =====
@@ -914,6 +923,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
