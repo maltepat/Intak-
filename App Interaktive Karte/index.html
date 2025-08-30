@@ -33,40 +33,81 @@
   .actions { margin-top:8px; display:flex; gap:8px; }
   .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
   .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
+/* Karte */
+.mapwrap {
+  display:none;
+  height:calc(100vh - 112px);
+  overflow:hidden;
+  position:relative;
+  background:#000;
+  touch-action:none;
+  overscroll-behavior: contain;
+}
+.mapwrap.active { display:block; }
 
-  /* Karte */
-  .mapwrap {
-    display:none;
-    height:calc(100vh - 112px);
-    overflow:hidden;
-    position:relative;
-    background:#000;
-    touch-action:none;
-    overscroll-behavior: contain;
-  }
-  .mapwrap.active { display:block; }
+.map {
+  position:relative;
+  width:1920px;
+  height:1080px;
+  touch-action:none;
+  will-change: transform;
+  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
+}
 
-  .map {
-    position:relative;
-    width:1920px;
-    height:1080px;
-    touch-action:none;
-    will-change: transform;
-  }
+.map-img {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: contain;     
+  display:block;
+  user-select:none;
+  pointer-events:none;
+}
 
-  .map-img {
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    object-fit:fill;
-    display:block;
-    user-select:none;
-    pointer-events:none;
-  }
 
-  .pin { position:absolute; width:64px; height:64px; transform:translate(-50%,-50%); cursor:pointer; }
-  .pin img { width:100%; height:100%; }
+.pin {
+  position: absolute;
+  /* deine bisherige Boxgröße in % bleibt gleich */
+  width: 3.05%;
+  height: auto;
+  cursor: pointer;
+
+  /* Bild in der Box zentrieren */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* weiterhin KEIN translate, weil getPinCenter die Box-Mitte berechnet */
+  transform: none;
+  transform-origin: center center;
+}
+
+.pin img {
+  width: 70%;   /* 👈 wieder wie vorher */
+  height: auto;
+  pointer-events: none;
+}
+
+
+
+  /* Pin-Highlight */
+.pin { transform-origin: center center; } /* wichtig, damit Scale nicht verrutscht */
+.pin.highlight { z-index: 6; transform: scale(1.25); }
+.pin.highlight img {
+  filter: drop-shadow(0 0 10px rgba(255, 210, 0, 0.95));
+  animation: pinPulse 1.2s ease-in-out infinite;
+}
+@keyframes pinPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+
+/* (optional) ausgewählte Karte in der Liste visuell markieren */
+.card.selected {
+  border-color: #111;
+  box-shadow: 0 0 0 2px #111 inset;
+}
 
   /* Bottom Sheet */
   .sheet { position:fixed; left:0; right:0; bottom:-100%; background:#fff; border-radius:16px 16px 0 0;
@@ -84,7 +125,7 @@
 
     body.fullscreen-map { overflow:hidden; }
 
-    body.fullscreen-map .mapwrap {
+body.fullscreen-map .mapwrap {
       position: fixed;
       inset: 0;
       z-index: 9999;
@@ -130,12 +171,115 @@
   <div class="list" id="list"></div>
   
   <div class="mapwrap" id="mapwrap">
-    <div class="map" id="map">
-      <img src="bilder/TXL Lageplan LAF-vektorisiert_013_HD(1).png" alt="Karte" class="map-img" draggable="false" />
-      <div class="pin" id="pin-P5" style="top:58%; left:33%;"><img src="icons/P5Icon.png" alt="P5"/></div>
-      <div class="pin" id="pin-Kruemelecke" style="top:45%; left:60%;"><img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/></div>
-    </div>
+<div class="map" id="map">
+  <img src="bilder/TXL Lageplan LAF-vektorisiert.png" alt="Karte" class="map-img" draggable="false" />
+
+  <div class="pin" id="pin-P5" style="top:57.49%; left:33.25%;" data-x="33.25" data-y="57.49" data-wp="3.05">
+    <img src="icons/P5Icon.png" alt="P5"/>
   </div>
+
+  <div class="pin" id="pin-Kruemelecke" style="top:37.9%; left:28.25%;" data-x="28.25" data-y="37.9" data-wp="3.05">
+    <img src="icons/KruemeleckeIcon.png" alt="Krümelecke"/>
+  </div>
+
+  <div class="pin" id="pin-Sandburg" style="left:24.7%; top:5.9%;" data-x="24.7" data-y="5.9" data-wp="3.05">
+    <img src="icons/SandburgIcon.png" alt="Sandburg"/>
+  </div>
+
+  <div class="pin" id="pin-Q1" style="top:88.4%; left:44.4%;" data-x="44.4" data-y="88.4" data-wp="3.05">
+    <img src="icons/Q1Icon.png" alt="Q1"/>
+  </div>
+
+  <div class="pin" id="pin-Q" style="top:88.9%; left:50%;" data-x="50" data-y="88.9" data-wp="3.05">
+    <img src="icons/QIcon.png" alt="Q"/>
+  </div>
+
+  <div class="pin" id="pin-Post" style="top:39%; left:45.2%;" data-x="45.2" data-y="39" data-wp="3.05">
+    <img src="icons/PostIcon.png" alt="Post"/>
+  </div>
+
+  <div class="pin" id="pin-Kleiderkammer" style="top:14.2%; left:54.4%;" data-x="54.4" data-y="14.2" data-wp="3.05">
+    <img src="icons/KleiderkammerIcon.png" alt="Kleiderkammer"/>
+  </div>
+
+  <div class="pin" id="pin-Infopoint" style="top:40.96%; left:37.8%;" data-x="37.8" data-y="40.96" data-wp="3.05">
+    <img src="icons/InfopointIcon.png" alt="Infopoint"/>
+  </div>
+
+  <div class="pin" id="pin-L1" style="top:20.3%; left:14.7%;" data-x="14.7" data-y="20.3" data-wp="3.05">
+    <img src="icons/L1Icon.png" alt="L1"/>
+  </div>
+
+  <div class="pin" id="pin-L2" style="top:10.5%; left:14.7%;" data-x="14.7" data-y="10.5" data-wp="3.05">
+    <img src="icons/L2Icon.png" alt="L2"/>
+  </div>
+
+  <div class="pin" id="pin-H" style="top:18.7%; left:28.25%;" data-x="28.25" data-y="18.7" data-wp="3.05">
+    <img src="icons/HIcon.png" alt="H"/>
+  </div>
+
+  <div class="pin" id="pin-D3" style="top:9.7%; left:54.4%;" data-x="54.4" data-y="9.7" data-wp="3.05">
+    <img src="icons/D3Icon.png" alt="D3"/>
+  </div>
+
+  <div class="pin" id="pin-M5" style="top:54.5%; left:61.5%;" data-x="61.5" data-y="54.5" data-wp="3.05">
+    <img src="icons/M5Icon.png" alt="M5"/>
+  </div>
+
+  <div class="pin" id="pin-VWG1" style="top:54.8%; left:41.7%;" data-x="41.7" data-y="54.8" data-wp="3.05">
+    <img src="icons/VWG1Icon.png" alt="VWG1"/>
+  </div>
+
+  <div class="pin" id="pin-VWG2" style="top:52.48%; left:38.02%;" data-x="38.02" data-y="52.48" data-wp="3.05">
+    <img src="icons/VWG2Icon.png" alt="VWG2"/>
+  </div>
+
+  <div class="pin" id="pin-MedPoint" style="top:57.8%; left:39.7%;" data-x="39.7" data-y="57.8" data-wp="3.05">
+    <img src="icons/MedPointIcon.png" alt="Med"/>
+  </div>
+
+  <div class="pin" id="pin-VWG3" style="top:57.45%; left:45.18%;" data-x="45.18" data-y="57.45" data-wp="3.05">
+    <img src="icons/VWG3Icon.png" alt="VWG3"/>
+  </div>
+
+  <div class="pin" id="pin-Krähenwald" style="top:65.5%; left:34.5%;" data-x="34.5" data-y="65.5" data-wp="3.05">
+    <img src="icons/KrähenwaldIcon.png" alt="Krähenwald"/>
+  </div>
+
+  <div class="pin" id="pin-WS" style="top:89%; left:74.5%;" data-x="74.5" data-y="89" data-wp="3.05">
+    <img src="icons/WSIcon.png" alt="Willkommensschule"/>
+  </div>
+
+  <div class="pin" id="pin-Waschsalon" style="top:68%; left:40.5%;" data-x="40.5" data-y="68" data-wp="3.05">
+    <img src="icons/WaschsalonIcon.png" alt="Waschsalon"/>
+  </div>
+
+  <div class="pin" id="pin-Bus" style="top:27.35%; left:42.5%;" data-x="42.5" data-y="27.35" data-wp="3.05">
+    <img src="icons/BusIcon.png" alt="Bus"/>
+  </div>
+
+  <div class="pin" id="pin-Begleitdienst" style="top:44%; left:33.1%;" data-x="33.1" data-y="44" data-wp="3.05">
+    <img src="icons/BegleitdienstIcon.png" alt="Begleitdienst"/>
+  </div>
+
+  <div class="pin" id="pin-Sozialerdienst" style="top:33.5%; left:27.3%;" data-x="27.3" data-y="33.5" data-wp="3.05">
+    <img src="icons/SozialerdienstIcon.png" alt="Sozialer Dienst"/>
+  </div>
+
+  <div class="pin" id="pin-Checkin" style="top:39%; left:33.1%;" data-x="33.1" data-y="39" data-wp="3.05">
+    <img src="icons/CheckinIcon.png" alt="Checkin"/>
+  </div>
+
+  <div class="pin" id="pin-Sprachmittlung" style="top:44%; left:35.5%;" data-x="35.5" data-y="44" data-wp="3.05">
+    <img src="icons/SprachmittlungIcon.png" alt="Sprachmittlung"/>
+  </div>
+
+  <div class="pin" id="pin-Bistro" style="top:44%; left:44.5%;" data-x="44.5" data-y="44" data-wp="3.05">
+    <img src="icons/BistroIcon.png" alt="Bistro"/>
+  </div>
+</div>
+
+
 
   <button class="exit-fullscreen" id="exitFsBtn" type="button">Zur Liste</button>
 
@@ -148,11 +292,31 @@
   </div>
 
 <script src="translations.js"></script>
-<script src="https://unpkg.com/@panzoom/panzoom/dist/panzoom.min.js"></script>
+<script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 <script>
+  console.log('[MAP] boot');                    // <— kleiner Rauchtest
+
   /* ====== STATE & SETTINGS ====== */
   let currentLang = 'de';
   let panzoomInstance = null;
+  let currentMinScale = 1;
+
+function setOptsSafe(opts = {}) {
+  if (panzoomInstance && typeof panzoomInstance.setOptions === 'function') {
+    panzoomInstance.setOptions(opts);
+  }
+}
+
+function getTfSafe() {
+  if (!panzoomInstance) return null;
+  // v4-Varianten haben meist getScale/getPan, manche haben getTransform
+  if (typeof panzoomInstance.getTransform === 'function') {
+    return panzoomInstance.getTransform();
+  }
+  const s = (typeof panzoomInstance.getScale === 'function') ? panzoomInstance.getScale() : undefined;
+  const p = (typeof panzoomInstance.getPan   === 'function') ? panzoomInstance.getPan()   : undefined;
+  return (s !== undefined && p) ? { x: p.x, y: p.y, scale: s } : null;
+}
 
   const MAP_W = 1920, MAP_H = 1080;
   const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
@@ -187,18 +351,33 @@
     }
     window.removeEventListener('orientationchange', onVVChange);
   }
+
   function onVVChange() {
-    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    wrapEl.style.height = h + 'px';
-    setFullscreenVH();
-    if (panzoomInstance) {
-      requestAnimationFrame(() => {
-        const t = panzoomInstance.getTransform();
-        const min = panzoomInstance.getOptions().minScale ?? 0;
-        if (Math.abs(t.scale - min) < 0.03) fitAndCenter(START_X_PERCENT);
-      });
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  wrapEl.style.height = h + 'px';
+  setFullscreenVH();
+
+  if (!panzoomInstance) return;
+
+  // Bei starken Änderungen am unteren Ende wieder auf Fit oder letzten Fokus justieren
+  requestAnimationFrame(() => {
+    const min = currentMinScale;
+    const t = getTfSafe();
+    if (!t) return;
+
+    // Wenn wir sehr nahe an minScale sind, frisch fitten
+    if (Math.abs(t.scale - min) < 0.03) {
+      const fit = computeFit(START_X_PERCENT);
+      setOptsSafe({ minScale: fit.scale });
+      currentMinScale = fit.scale;
+
+      const targetScale = Math.max(fit.scale, TARGET_SCALE);
+      const id = lastFocusId || getFocusFromURL();
+      const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
+      applyTransform(tf, false);
     }
-  }
+  });
+}
 
   /* ====== Fit-Funktionen ====== */
   function computeFit(xPercent = START_X_PERCENT, yAlign = 'center') {
@@ -208,13 +387,59 @@
     const y = (yAlign === 'top') ? 0 : (rect.height - MAP_H * scale) / 2;
     return { scale, x, y };
   }
+  
+function computeTransformForPin(id, scale) {
+  const c = getPinCenter(id);
+  if (!c) return null;
 
-  function fitAndCenter(xPercent = START_X_PERCENT) {
-    if (!panzoomInstance) return;
-    const { scale, x, y } = computeFit(xPercent);
-    panzoomInstance.setTransform({ x, y, scale });
-    panzoomInstance.setOptions({ minScale: scale });
-  }
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // 1. Berechne die gewünschte Pan-Position.
+  // Pan-Wert ist der Unterschied zwischen Viewport-Mitte und dem skalierten Pin-Mittelpunkt.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+
+  const mapW = MAP_W * scale;
+  const mapH = MAP_H * scale;
+
+  // 2. Bounding (Begrenzung): Stelle sicher, dass die Karte nicht aus dem Sichtfeld rutscht.
+  let minX, maxX, minY, maxY;
+  
+  // Begrenzung für X
+  if (mapW >= rect.width) {
+    // Karte ist breiter als der Viewport
+    minX = rect.width - mapW;
+    maxX = 0;
+  } else {
+    // Karte ist schmaler, zentriere sie
+    minX = maxX = (rect.width - mapW) / 2;
+  }
+
+  // Begrenzung für Y
+  if (mapH >= rect.height) {
+    // Karte ist höher als der Viewport
+    minY = rect.height - mapH;
+    maxY = 0;
+  } else {
+    // Karte ist kürzer, zentriere sie
+    minY = maxY = (rect.height - mapH) / 2;
+  }
+
+  // 3. Klammere die berechneten Pan-Werte, damit sie innerhalb der Grenzen bleiben.
+  // Eine kleine Pufferzone (BLEED) kann die Animation weicher machen.
+  const BLEED = 10;
+  const finalX = clamp(x, minX - BLEED, maxX + BLEED);
+  const finalY = clamp(y, minY - BLEED, maxY + BLEED);
+
+  return { x: finalX, y: finalY, scale };
+}
+
+// Hilfsfunktion zum Begrenzen eines Werts
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(value, max));
+}
 
   /* ====== NAVIGATION ====== */
   function enterMapFullscreen(){ document.body.classList.add('fullscreen-map'); }
@@ -234,57 +459,290 @@
     if (imgEl.complete) cb();
     else imgEl.addEventListener('load', cb, { once: true });
   }
+  
+function getFocusFromURL() {
+  try {
+    const p = new URLSearchParams(location.search);
+    const hash = location.hash || '';
+    return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
+  } catch { return null; }
+}
+const TARGET_SCALE = 1.8; // zentral definieren
 
-  function showMap(){
-    document.getElementById('tab-map').classList.add('active');
-    document.getElementById('tab-list').classList.remove('active');
-    wrapEl.classList.add('active');
-    document.getElementById('list').style.display = 'none';
+function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
 
-    if (isMobile()) {
-      enterMapFullscreen();
-      setFullscreenVH();
-      wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-      enableVHWatchers();
-    }
+function logTf(tag, tf){
+  if(!tf) return console.log(tag, '— no tf');
+  console.log(tag, { x: Math.round(tf.x), y: Math.round(tf.y), s: +tf.scale.toFixed(3) });
+}
 
-    const mapImgEl = document.querySelector('.map-img');
+function debugFocus(id, scale){
+  const r = wrapEl.getBoundingClientRect();
+  const c = getPinCenter(id);
+  const tf = computeTransformForPin(id, scale);
+  console.table({
+    id,
+    view: JSON.stringify(logRect(r)),
+    cx: Math.round(c?.cx ?? -1),
+    cy: Math.round(c?.cy ?? -1),
+    scale: scale,
+    tf_x: Math.round(tf?.x ?? 0),
+    tf_y: Math.round(tf?.y ?? 0)
+  });
+}
+  
+function showMap(focusId = null) {
+  // Tabs umschalten & UI aktualisieren
+  document.getElementById('tab-map').classList.add('active');
+  document.getElementById('tab-list').classList.remove('active');
+  wrapEl.classList.add('active');
+  document.getElementById('list').style.display = 'none';
 
-    waitForImage(mapImgEl, () => {
-      const doFit = () => {
-        setFullscreenVH();
-        wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
-        const { scale, x, y } = computeFit(START_X_PERCENT);
-
-        if (!panzoomInstance) {
-          panzoomInstance = Panzoom(mapEl, {
-            maxScale: 4,
-            contain: 'outside',
-            startScale: scale,
-            startX: x,
-            startY: y,
-            animate: true
-          });
-          wrapEl.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            panzoomInstance.zoomWithWheel(e);
-          }, { passive: false });
-        }
-        panzoomInstance.setOptions({ minScale: scale });
-        panzoomInstance.setTransform({ x, y, scale });
-      };
-
-      doFit();            // sofort
-      setTimeout(doFit, 150); // Sicherheits-fit
-    });
+  // Mobil: Vollbild & Höhe setzen
+  if (isMobile()) {
+    enterMapFullscreen();
+    setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    enableVHWatchers();
   }
 
+  const mapImgEl = document.querySelector('.map-img');
+
+  waitForImage(mapImgEl, () => {
+    // 1) Fit & minScale berechnen
+    const fit = computeFit(START_X_PERCENT);
+    const minScale = fit.scale;
+    currentMinScale = minScale;
+
+    // 2) Panzoom initialisieren (falls noch nicht geschehen)
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        contain: 'outside',
+        maxScale: 4,
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
+      // Desktop: Mausrad-Zoom
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e, { animate: true });
+      }, { passive: false });
+    
+      window.panzoomInstance = panzoomInstance;
+      window.wrapEl = wrapEl;
+      window.mapEl = mapEl;
+    } else {
+        // Bei erneuter Ansicht: minScale aktualisieren
+        panzoomInstance.setOptions({ minScale: minScale, animate: true });
+    }
+
+    // 3) Ziel-ID bestimmen & Pin highlighten
+    const rawId = focusId || lastFocusId || getFocusFromURL() || null;
+    const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
+
+    if (id) {
+      lastFocusId = id;
+      highlightPin(id);
+    } else {
+      clearHighlight();
+    }
+
+    // 4) Transformation berechnen
+    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
+    
+    // 5) Transformation anwenden
+    if (targetTf) {
+      // ✅ Korrigierte Methode: Pan-Befehl separat aufrufen
+      panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
+      
+      // ✅ Verzögerung: Zoom-Befehl mit einer kleinen Pause aufrufen
+      // Dies stellt sicher, dass Panzoom den Pan-Befehl verarbeitet,
+      // bevor der Zoom-Befehl eintrifft.
+      setTimeout(() => {
+        panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
+      }, 50); // 50 Millisekunden Verzögerung
+
+      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
+    } else {
+      console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+    }
+  }); // waitForImage
+}
+
+// Überarbeitete Funktion: Entfernung der unnötigen Begrenzung.
+function computeTransformForPin(id, scale) {
+  const c = getPinCenter(id);
+  if (!c) return null;
+
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // Pan-Werte sind der Unterschied zwischen der Mitte des Viewports
+  // und dem skalierten Pin-Mittelpunkt.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+  
+  // Panzoom übernimmt die Begrenzung, wir müssen nur die reinen Werte liefern
+  return { x, y, scale };
+}
+  
   /* ====== LISTE & DATEN ====== */
-  const categories = [
-    { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'}, areas:['P5','Sandburg','Kruemelecke','Q1','Q'] },
-    { id:'health', label:{de:'Medizin', en:'Medical'}, areas:['MP','Med'] },
-    { id:'services', label:{de:'Service', en:'Services'}, areas:['Post','Kleiderkammer','Infopoint'] }
-  ];
+const categories = [
+  // Kids / Freizeit
+  { id:'kids', label:{de:'Kinder & Freizeit', en:'Kids & Leisure'},
+  areas: ['D3', 'Kruemelecke', 'L1', 'L2', 'M5', 'P5', 'Q1', 'Sandburg']},
+
+  // Medizin / Hilfe
+  { id:'health', label:{de:'Medizin & Hilfe', en:'Medical & Help'},
+    areas:['MedPoint','Sozialerdienst','VWG1','VWG2','VWG3'] }, // 
+
+  // Services / Info
+  { id:'services', label:{de:'Service & Info', en:'Services & Info'},areas: ['Begleitdienst', 'Bistro', 'Checkin', 'Infopoint', 'Kleiderkammer', 'Post', 'Sprachmittlung', 'Waschsalon'] },
+
+  // Gelände / Orientierung
+  { id:'site', label:{de:'Gelände', en:'Site'},
+    areas:['Q','Krähenwald','WS','Bus','H'] }
+];
+
+  let lastFocusId = null;        // z.B. 'MedPoint'
+let highlightedPinId = null;
+
+function highlightPin(id) {
+  // altes Highlight entfernen
+  if (highlightedPinId) {
+    const prev = document.getElementById(`pin-${highlightedPinId}`);
+    if (prev) prev.classList.remove('highlight');
+  }
+  // neues setzen
+  const el = document.getElementById(`pin-${id}`);
+  if (el) {
+    el.classList.add('highlight');
+    highlightedPinId = id;
+  }
+}
+
+function clearHighlight() {
+  if (!highlightedPinId) return;
+  const el = document.getElementById(`pin-${highlightedPinId}`);
+  if (el) el.classList.remove('highlight');
+  highlightedPinId = null;
+}
+
+// (optional) Alias-Auflösung, falls mal "med" statt "MedPoint" übergeben wird
+const aliases = { med: 'MedPoint', medpoint: 'MedPoint', 'med point':'MedPoint' };
+function resolveId(id) {
+  if (!id) return id;
+  const key = String(id).toLowerCase();
+  return aliases[key] || id;
+}
+
+
+// ===== DEBUG-HARNESS: Panzoom Tests =====
+window.__mapTest = {
+  check() {
+    const okLib = typeof Panzoom === 'function';
+    const okWrap = !!wrapEl && wrapEl.getBoundingClientRect();
+    const okMap  = !!mapEl && mapEl.getBoundingClientRect();
+    const img    = document.querySelector('.map-img');
+    const cs     = mapEl ? getComputedStyle(mapEl).transform : 'n/a';
+    console.log('[CHECK]', {
+      panzoomLoaded: okLib,
+      wrapSize: okWrap ? wrapEl.getBoundingClientRect() : null,
+      mapSize:  okMap  ? mapEl.getBoundingClientRect()  : null,
+      imgComplete: !!img?.complete,
+      cssTransformOnMap: cs
+    });
+  },
+
+  init() {
+    const fit = computeFit(START_X_PERCENT);
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        maxScale: 4,
+        contain: 'outside',
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
+      console.log('[INIT] panzoom created →', panzoomInstance.getTransform());
+      wrapEl.addEventListener('wheel', (e) => { e.preventDefault(); panzoomInstance.zoomWithWheel(e); }, { passive: false });
+    } else {
+      console.log('[INIT] reuse →', panzoomInstance.getTransform());
+    }
+    panzoomInstance.setOptions({ minScale: fit.scale });
+    // auf Fit setzen
+    panzoomInstance.setTransform(fit);
+    return panzoomInstance.getTransform();
+  },
+
+  nudge() {
+    const fit = computeFit(START_X_PERCENT);
+    panzoomInstance.setOptions({ animate: false });
+    panzoomInstance.setTransform({ x: fit.x + 1, y: fit.y + 1, scale: fit.scale });
+    panzoomInstance.setTransform(fit);
+    console.log('[NUDGE] applied');
+    return panzoomInstance.getTransform();
+  },
+
+  fit() {
+    const fit = computeFit(START_X_PERCENT);
+    panzoomInstance.setTransform(fit);
+    console.log('[FIT] →', fit);
+    return fit;
+  },
+
+  zoomCenter(scale = 2.5) {
+    const rect = wrapEl.getBoundingClientRect();
+    const x = rect.width  / 2 - (MAP_W * 0.5) * scale;
+    const y = rect.height / 2 - (MAP_H * 0.5) * scale;
+    panzoomInstance.setTransform({ x, y, scale });
+    console.log('[ZOOM CENTER]', { x, y, scale });
+    return panzoomInstance.getTransform();
+  },
+
+  focus(id, scale = 2.5) {
+    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
+    console.log('[FOCUS]', id, tf);
+    if (tf) {
+      panzoomInstance.setTransform(tf);
+      highlightPin && highlightPin(id);
+    } else {
+      console.warn('[FOCUS] kein Transform für', id);
+    }
+    return panzoomInstance?.getTransform();
+  },
+
+  animTo(target, duration = 400) {
+    const start = panzoomInstance.getTransform();
+    const t0 = performance.now();
+    function tick(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const k = 0.5 - 0.5 * Math.cos(Math.PI * t);
+      panzoomInstance.setTransform({
+        x: start.x + (target.x - start.x) * k,
+        y: start.y + (target.y - start.y) * k,
+        scale: start.scale + (target.scale - start.scale) * k,
+      });
+      if (t < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  },
+
+  animFocus(id, scale = 2.5, duration = 400) {
+    const tf = computeTransformForPin(id, Math.max(scale, (computeFit(START_X_PERCENT).scale)));
+    console.log('[ANIM FOCUS]', id, tf);
+    if (tf) this.animTo(tf, duration);
+  }
+};
 
   function render(){
     const chips = document.getElementById('chips'); chips.innerHTML='';
@@ -296,28 +754,60 @@
     });
     renderList(categories.flatMap(c=>c.areas));
   }
+function renderList(areaIds){
+  const list = document.getElementById('list'); 
+  list.innerHTML = '';
 
-  function renderList(areaIds){
-    const list=document.getElementById('list'); list.innerHTML='';
-    areaIds.forEach(id=>{
-      const data = translations[id]?.[currentLang]; if(!data) return;
-      const card=document.createElement('div'); card.className='card';
-      const icon=document.createElement('img'); icon.src=`icons/${id}Icon.png`; icon.alt=id; icon.style.width='52px'; icon.style.height='52px';
-      const body=document.createElement('div');
-      const h=document.createElement('h3'); h.textContent=data.title || id;
-      const meta=document.createElement('div'); meta.className='meta'; meta.innerHTML=data.time||'';
-      const txt=document.createElement('div'); txt.className='meta'; txt.innerHTML=data.text||'';
-      const actions=document.createElement('div'); actions.className='actions';
-      const btn1=document.createElement('button'); btn1.className='btn'; btn1.textContent='Details';
-      btn1.onclick=()=>openSheet(id);
-      const btn2=document.createElement('button'); btn2.className='btn ghost'; btn2.textContent='Auf Karte zeigen';
-      btn2.onclick=()=>{ showMap(); focusPin(id); };
-      actions.append(btn1, btn2);
-      body.append(h, meta, txt, actions);
-      card.append(icon, body);
-      list.appendChild(card);
+  areaIds.forEach(id => {
+    const data = translations[id]?.[currentLang]; 
+    if (!data) return;
+
+    const card = document.createElement('div'); 
+    card.className = 'card';
+    if (id === lastFocusId) card.classList.add('selected'); // << neu
+
+    const icon = document.createElement('img'); 
+    icon.src = `icons/${id}Icon.png`; 
+    icon.alt = id; 
+    icon.style.width = '52px'; 
+    icon.style.height = '52px';
+
+    const body = document.createElement('div');
+    const h = document.createElement('h3'); h.textContent = data.title || id;
+    const meta = document.createElement('div'); meta.className = 'meta'; meta.innerHTML = data.time || '';
+    const txt = document.createElement('div'); txt.className = 'meta'; txt.innerHTML = data.text || '';
+
+    const actions = document.createElement('div'); actions.className = 'actions';
+    const btn1 = document.createElement('button'); btn1.className = 'btn'; btn1.textContent = 'Details';
+    btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
+
+    const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
+
+    actions.append(btn1, btn2);
+    body.append(h, meta, txt, actions);
+    card.append(icon, body);
+    list.appendChild(card);
+
+    // Klick auf die Karte selbst markiert die Auswahl (für späteren Tab-Wechsel auf "Karte")
+    card.addEventListener('click', () => {
+      lastFocusId = id;
+      // optisch updaten
+      document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
+      card.classList.add('selected');
     });
-  }
+  });
+}
+
+  document.querySelectorAll('.pin').forEach(el => {
+  el.addEventListener('click', () => {
+    const id = el.id.replace('pin-','');
+    lastFocusId = id;
+    highlightPin(id);
+    openSheet(id);
+  });
+});
+
 
   function openSheet(id){
     const d=translations[id]?.[currentLang]; if(!d) return;
@@ -334,21 +824,175 @@
   }
   function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
 
-  /* ====== Pin-Fokus ====== */
-  function focusPin(id, targetScale = 2) {
-    const pinEl = document.getElementById(`pin-${id}`);
-    if (!pinEl || !panzoomInstance) return;
-    fitAndCenter(START_X_PERCENT);
-    const wrapRect = wrapEl.getBoundingClientRect();
-    const pinRect  = pinEl.getBoundingClientRect();
-    const pinCenterX = pinRect.left + pinRect.width/2 - wrapRect.left;
-    const pinCenterY = pinRect.top  + pinRect.height/2 - wrapRect.top;
-    panzoomInstance.zoomToPoint(targetScale, { clientX: wrapRect.left + pinCenterX, clientY: wrapRect.top + pinCenterY });
-    const t = panzoomInstance.getTransform();
-    const dx = (wrapRect.width/2  - pinCenterX) * (1 / t.scale);
-    const dy = (wrapRect.height/2 - pinCenterY) * (1 / t.scale);
-    panzoomInstance.pan(t.x + dx, t.y + dy);
+
+function getPinCenter(id) {
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
+
+  // robustes Parsen (unterstützt "54,4" u. "54.4")
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+
+  const dx = toNum(el.dataset.x);  // left in %
+  const dy = toNum(el.dataset.y);  // top in %
+  const wp = toNum(el.dataset.wp); // box-breite in % (von MAP_W)
+
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    // halbe Box-Breite in %-von-MAP_W
+    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+
+    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
+    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
+    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+
+    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+    return { cx, cy };
   }
+
+  // Dieser Code-Abschnitt wurde entfernt, da er die Ursache für NaN war.
+  // const cx = el.offsetLeft + el.offsetWidth / 2;
+  // const cy = el.offsetTop + el.offsetHeight / 2;
+  // return { cx, cy };
+
+  return null;
+}
+  
+// ===== DEBUG-KIT: alles zur Konsole =====
+(function () {
+  // Hilfsfunktionen (ändern nichts am Verhalten)
+  function getRect() {
+    const r = wrapEl.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height) };
+  }
+  function getMapSize(scale) {
+    return { w: Math.round(MAP_W * scale), h: Math.round(MAP_H * scale) };
+  }
+  function getDomCenter(id) {
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    return {
+      cx: el.offsetLeft + el.offsetWidth / 2,
+      cy: el.offsetTop  + el.offsetHeight / 2,
+      note: "DOM-offset (ignoriert data-%)"
+    };
+  }
+  function getPctCenter(id) {
+    // das ist exakt deine getPinCenter-Logik – einmal separat, nur zum Vergleichen
+    const el = document.getElementById(`pin-${id}`);
+    if (!el) return null;
+    const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+    const dx = toNum(el.dataset.x);
+    const dy = toNum(el.dataset.y);
+    const wp = toNum(el.dataset.wp);
+    if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+      const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
+      const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+      const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+      const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+      return { cx, cy, note: "data-% gerechnet" };
+    }
+    return null;
+  }
+  function clamp(v, min, max) { return Math.min(max, Math.max(min, v)); }
+
+  // 1) Gesamtsnapshot des aktuellen Zustands
+  function snapshot(tag = 'SNAP') {
+    const tf = getTfSafe();
+    const r  = wrapEl.getBoundingClientRect();
+    const min = currentMinScale;
+    console.group(`[${tag}]`);
+    console.table({
+      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      transform_x: Math.round(tf?.x ?? 0),
+      transform_y: Math.round(tf?.y ?? 0),
+      scale: +(tf?.scale ?? 0).toFixed(3),
+      minScale: +min.toFixed(3),
+      map_px: `${Math.round(MAP_W*(tf?.scale||1))}×${Math.round(MAP_H*(tf?.scale||1))}`,
+      contain: (panzoomInstance?.getOptions?.().contain) || '(n/a)'
+    });
+    console.groupEnd();
+  }
+
+  // 2) Details zu einem Pin + Ziel-Transform samt Clamp-Grenzen
+  function focusPlan(id, scale = Math.max(currentMinScale, (typeof TARGET_SCALE === 'number' ? TARGET_SCALE : 1.8))) {
+    const pct = getPctCenter(id);
+    const dom = getDomCenter(id);
+    const r   = wrapEl.getBoundingClientRect();
+    const mapW = MAP_W * scale, mapH = MAP_H * scale;
+
+    // Wunsch: Mittelpunkt ins Zentrum
+    let wantX = r.width/2  - (pct?.cx ?? dom?.cx ?? 0) * scale;
+    let wantY = r.height/2 - (pct?.cy ?? dom?.cy ?? 0) * scale;
+
+    // deine symmetrischen Bounds (so wie in deiner aktuellen computeTransformForPin-Version)
+    const minX = (mapW > r.width)  ? (r.width  - mapW) : (r.width  - mapW) / 2;
+    const maxX = (mapW > r.width)  ? 0                 : (r.width  - mapW) / 2;
+    const minY = (mapH > r.height) ? (r.height - mapH) : (r.height - mapH) / 2;
+    const maxY = (mapH > r.height) ? 0                 : (r.height - mapH) / 2;
+
+    const finalX = clamp(wantX, minX, maxX);
+    const finalY = clamp(wantY, minY, maxY);
+
+    console.group(`[FOCUS PLAN] ${id}`);
+    console.table({
+      viewport: `${Math.round(r.width)}×${Math.round(r.height)}`,
+      target_scale: +scale.toFixed(3),
+      pin_cx_pct: pct?.cx?.toFixed?.(1) ?? '—',
+      pin_cy_pct: pct?.cy?.toFixed?.(1) ?? '—',
+      pin_cx_dom: dom?.cx?.toFixed?.(1) ?? '—',
+      pin_cy_dom: dom?.cy?.toFixed?.(1) ?? '—',
+      wantX: Math.round(wantX),
+      wantY: Math.round(wantY),
+      minX: Math.round(minX),
+      maxX: Math.round(maxX),
+      minY: Math.round(minY),
+      maxY: Math.round(maxY),
+      finalX: Math.round(finalX),
+      finalY: Math.round(finalY),
+      mapW: Math.round(mapW),
+      mapH: Math.round(mapH)
+    });
+    console.groupEnd();
+
+    return { x: finalX, y: finalY, scale };
+  }
+
+  // 3) Direkter Test: berechne + animiere (nutzt deine animTo/applyTransform)
+  function animFocusDebug(id, scale) {
+    const tf = focusPlan(id, scale);
+    if (!tf) return;
+    animTo(tf, 350);
+    if (typeof highlightPin === 'function') highlightPin(id);
+    lastFocusId = id;
+  }
+
+  // 4) Vergleich mehrerer Sprünge nacheinander
+  async function jumpSeq(ids, scale) {
+    for (const id of ids) {
+      console.log('%c[JUMP]', 'color:#0a0', id);
+      const tf = focusPlan(id, scale);
+      animTo(tf, 300);
+      if (typeof highlightPin === 'function') highlightPin(id);
+      lastFocusId = id;
+      await new Promise(r => setTimeout(r, 380));
+    }
+  }
+
+  // 5) Global verfügbar machen
+  window.__mapDbg = {
+    snapshot,         // __mapDbg.snapshot()
+    plan: focusPlan,  // __mapDbg.plan('D3', 1.8)
+    focus: animFocusDebug, // __mapDbg.focus('D3', 1.8)
+    jumpSeq,          // __mapDbg.jumpSeq(['L1','Sandburg','D3','WS'], 1.8)
+    domCenter: getDomCenter,
+    pctCenter: getPctCenter
+  };
+
+  // Komfort: Tastenkürzel
+  window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'd') __mapDbg.snapshot('KEY D');
+  });
+})();
 
   /* ====== Start ====== */
   render();
@@ -356,3 +1000,66 @@
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
