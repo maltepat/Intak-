@@ -390,23 +390,25 @@ function getTfSafe() {
   }
   
 function computePinLocation(id) {
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
 
-  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-  const dx = toNum(el.dataset.x);
-  const dy = toNum(el.dataset.y);
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+  const dx = toNum(el.dataset.x);
+  const dy = toNum(el.dataset.y);
 
-  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    // Die Mitte des Pins ist die Pin-Position plus die Hälfte der Pin-Breite/Höhe.
-    const pinWidth = el.offsetWidth;
-    const pinHeight = el.offsetHeight;
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    // Manuell die Pin-Größe basierend auf dem CSS-Wert berechnen
+    const pinWidthInPixels = (0.0305 * MAP_W);
+    const pinHeightInPixels = pinWidthInPixels; // Da die Pins quadratisch sind
 
-    const x = ((dx / 100) * MAP_W) + (pinWidth / 2);
-    const y = ((dy / 100) * MAP_H) + (pinHeight / 2);
-    return { x, y };
-  }
-  return null;
+    // Die Mitte des Pins ist die Pin-Position plus die Hälfte der Pin-Breite/Höhe
+    const x = ((dx / 100) * MAP_W) + (pinWidthInPixels / 2);
+    const y = ((dy / 100) * MAP_H) + (pinHeightInPixels / 2);
+
+    return { x, y };
+  }
+  return null;
 }
 
 // Hilfsfunktion zum Begrenzen eines Werts
@@ -440,7 +442,7 @@ function getFocusFromURL() {
     return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
   } catch { return null; }
 }
-const TARGET_SCALE = 1.3; // zentral definieren
+const TARGET_SCALE = 1; // zentral definieren
 
 function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
 
@@ -497,7 +499,8 @@ function showMap(focusId = null) {
         startY: fit.y,
         animate: true,
         duration: 350,
-        easing: 'ease-in-out'
+        easing: 'ease-in-out',
+        minScale: minScale
       });
       // Desktop: Mausrad-Zoom
       wrapEl.addEventListener('wheel', (e) => {
@@ -524,22 +527,20 @@ function showMap(focusId = null) {
       clearHighlight();
     }
     
-    const pinLoc = id ? computePinLocation(id) : null;
-    const targetScale = Math.max(minScale, TARGET_SCALE);
+    const pinLoc = id ? getPinCenter(id) : null;
+    const targetScale = Math.max(minScale, TARGET_SCALE);
 
-    if (pinLoc) {
-        // Korrigierte und robuste Methode: Mit `zoomToPoint` direkt auf die Pin-Position fokussieren.
-        // Die Panzoom-Bibliothek berechnet automatisch die richtige Pan- und Zoom-Transformation.
-        panzoomInstance.zoomToPoint(targetScale, pinLoc.x, pinLoc.y, { animate: true });
-        console.log(`🔍 Fokus auf ${id} bei x:${Math.round(pinLoc.x)} y:${Math.round(pinLoc.y)} mit s:${targetScale.toFixed(2)}`);
-    } else {
-        // Wenn kein Pin fokussiert werden soll, die Karte auf die anfängliche Position zurücksetzen.
-        panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: true });
-        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
-    }
+    if (pinLoc) {
+        // Nutze die korrekte Panzoom-Methode, die auf die Pin-Mitte zentriert
+        panzoomInstance.zoomToPoint(targetScale, pinLoc.cx, pinLoc.cy, { animate: true });
+        console.log(`🔍 Fokus auf ${id} bei x:${Math.round(pinLoc.cx)} y:${Math.round(pinLoc.cy)} mit s:${targetScale.toFixed(2)}`);
+    } else {
+        // Wenn kein Pin fokussiert werden soll, die Karte auf die anfängliche Position zurücksetzen.
+        panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: true });
+        console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
+    }
   }); // waitForImage
 }
-  
 
   /* ====== LISTE & DATEN ====== */
 const categories = [
@@ -949,6 +950,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
