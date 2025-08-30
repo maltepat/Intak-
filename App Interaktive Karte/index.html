@@ -486,7 +486,6 @@ function showMap(focusId = null) {
       // 3. Panzoom-Objekt erstellen, falls es nicht existiert (mit minimalen Optionen)
 if (!panzoomInstance) {
   panzoomInstance = Panzoom(mapEl, {
-    contain: 'outside',
     maxScale: 4,
     animate: true,
     duration: 350,
@@ -937,6 +936,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
