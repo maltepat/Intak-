@@ -523,10 +523,6 @@ function showMap(focusId = null) {
     } else {
       clearHighlight();
     }
-
-    // 4) Transformation berechnen
-    const targetScale = Math.max(minScale, TARGET_SCALE);
-    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
     
     const pinLoc = id ? computePinLocation(id) : null;
     const targetScale = Math.max(minScale, TARGET_SCALE);
@@ -954,6 +950,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
