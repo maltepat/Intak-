@@ -52,6 +52,7 @@
   height:1080px;
   touch-action:none;
   will-change: transform;
+  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
 }
 
 .map-img {
@@ -389,15 +390,18 @@ function getTfSafe() {
   }
   
 function computeTransformForPin(id, scale) {
-  const c = getPinCenter(id); // Diese Funktion bleibt unverändert
+  const c = getPinCenter(id);
   if (!c) return null;
 
-  // Die neue Berechnung geht vom Mittelpunkt der Karte aus.
-  // Wir berechnen den Vektor vom Kartenzentrum zum Pin und verschieben
-  // die Karte um den negativen, skalierten Betrag.
-  const x = (MAP_W / 2 - c.cx) * scale;
-  const y = (MAP_H / 2 - c.cy) * scale;
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
 
+  // Berechne die ideale Position, um den Pin in die Mitte zu rücken.
+  // Wir überlassen das Begrenzen der Karte komplett dem Panzoom-Plugin.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+  
   return { x, y, scale };
 }
   
@@ -731,9 +735,8 @@ function renderList(areaIds){
   });
 }
 
-document.querySelectorAll('.pin').forEach(el => {
-  el.addEventListener('pointerdown', (e) => {
-    e.stopPropagation(); // Verhindert, dass Panzoom das Event bekommt und die Karte verschiebt
+  document.querySelectorAll('.pin').forEach(el => {
+  el.addEventListener('click', () => {
     const id = el.id.replace('pin-','');
     lastFocusId = id;
     highlightPin(id);
@@ -933,8 +936,6 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
-
-
 
 
 
