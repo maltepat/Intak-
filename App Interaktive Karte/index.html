@@ -332,11 +332,14 @@ function getTfSafe() {
   function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
   function setLang(l){ currentLang=l; render(); }
 
-  /* ====== Viewport-Helfer ====== */
-  function setFullscreenVH() {
-    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
-  }
+function setFullscreenVH() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
+  if (isMobile() && document.body.classList.contains('fullscreen-map')) {
+    wrapEl.style.height = h + 'px';
+    wrapEl.style.width = window.visualViewport.width + 'px';
+  }
+}
   function enableVHWatchers() {
     setFullscreenVH();
     if (window.visualViewport) {
@@ -353,31 +356,28 @@ function getTfSafe() {
     window.removeEventListener('orientationchange', onVVChange);
   }
 
-  function onVVChange() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  wrapEl.style.height = h + 'px';
-  setFullscreenVH();
+function onVVChange() {
+  setFullscreenVH();
 
-  if (!panzoomInstance) return;
+  if (!panzoomInstance) return;
 
-  // Bei starken Änderungen am unteren Ende wieder auf Fit oder letzten Fokus justieren
-  requestAnimationFrame(() => {
-    const min = currentMinScale;
-    const t = getTfSafe();
-    if (!t) return;
+  const t = getTfSafe();
+  if (!t) return;
 
-    // Wenn wir sehr nahe an minScale sind, frisch fitten
-    if (Math.abs(t.scale - min) < 0.03) {
-      const fit = computeFit(START_X_PERCENT);
-      setOptsSafe({ minScale: fit.scale });
-      currentMinScale = fit.scale;
+  requestAnimationFrame(() => {
+    const id = lastFocusId || getFocusFromURL();
+    const fit = computeFit(START_X_PERCENT);
 
-      const targetScale = Math.max(fit.scale, TARGET_SCALE);
-      const id = lastFocusId || getFocusFromURL();
-      const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
-      applyTransform(tf, false);
-    }
-  });
+    if (id) {
+      const pinLoc = getPinCenter(id);
+      if (pinLoc) {
+        const targetScale = Math.max(fit.scale, TARGET_SCALE);
+        panzoomInstance.zoomToPoint(targetScale, pinLoc.cx, pinLoc.cy, { animate: false });
+      }
+    } else {
+      panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: false });
+    }
+  });
 }
 
   /* ====== Fit-Funktionen ====== */
@@ -477,7 +477,7 @@ function showMap(focusId = null) {
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
-    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
+    setFullscreenVH(); // Ruft die Funktion auf, um die Höhe korrekt einzustellen
     enableVHWatchers();
   }
 
@@ -776,28 +776,24 @@ function renderList(areaIds){
 
 
 function getPinCenter(id) {
-  const el = document.getElementById(`pin-${id}`);
-  if (!el) return null;
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
 
-  // robustes Parsen (unterstützt "54,4" u. "54.4")
-  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
+  const dx = toNum(el.dataset.x);
+  const dy = toNum(el.dataset.y);
 
-  const dx = toNum(el.dataset.x);  // left in %
-  const dy = toNum(el.dataset.y);  // top in %
-  const wp = toNum(el.dataset.wp); // box-breite in % (von MAP_W)
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    // Pin-Größe aus CSS-Prozentwert
+    const pinWidth = (3.05 / 100) * MAP_W;
+    const pinHeight = (3.05 / 100) * MAP_W;
 
-  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
-    // halbe Box-Breite in %-von-MAP_W
-    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
-
-    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
-    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
-    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
-
-    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
-    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
-    return { cx, cy };
-  }
+    const cx = ((dx / 100) * MAP_W) + (pinWidth / 2);
+    const cy = ((dy / 100) * MAP_H) + (pinHeight / 2);
+    return { cx, cy };
+  }
+  return null;
+}
 
   // Dieser Code-Abschnitt wurde entfernt, da er die Ursache für NaN war.
   // const cx = el.offsetLeft + el.offsetWidth / 2;
@@ -950,6 +946,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
