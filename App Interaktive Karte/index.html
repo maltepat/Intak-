@@ -33,26 +33,25 @@
   .actions { margin-top:8px; display:flex; gap:8px; }
   .btn { padding:10px 12px; border-radius:10px; background:#111; color:#fff; font-size:14px; border:none; cursor:pointer; }
   .btn.ghost { background:#fff; color:#111; border:1px solid #ddd; }
-
+/* Karte */
 .mapwrap {
-  /* ... andere Eigenschaften ... */
-  height: auto; /* Kann entfernt werden, ist aber zur Verdeutlichung nützlich */
-  position: absolute;
-  top: 112px; 
-  bottom: 0;
-  left: 0;
-  right: 0;
+  display:none;
+  height:calc(100vh - 112px);
+  overflow:hidden;
+  position:relative;
+  background:#000;
+  touch-action:none;
+  overscroll-behavior: contain;
 }
-  und 
 .mapwrap.active { display:block; }
 
 .map {
-  position: relative;
-  width: 1920px;
-  height: 1080px;
-  touch-action: none;
+  position:relative;
+  width:1920px;
+  height:1080px;
+  touch-action:none;
   will-change: transform;
-  transform-origin: 0 0; 
+  transform-origin: 0 0 !important;  /* 👈 Anker oben/links – wichtig für korrektes pan/zoom */
 }
 
 .map-img {
@@ -332,14 +331,11 @@ function getTfSafe() {
   function tLabel(cat){ return cat.label?.[currentLang] || cat.label?.de || ''; }
   function setLang(l){ currentLang=l; render(); }
 
-function setFullscreenVH() {
-  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
-  if (isMobile() && document.body.classList.contains('fullscreen-map')) {
-    wrapEl.style.height = h + 'px';
-    wrapEl.style.width = window.visualViewport.width + 'px';
-  }
-}
+  /* ====== Viewport-Helfer ====== */
+  function setFullscreenVH() {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
+  }
   function enableVHWatchers() {
     setFullscreenVH();
     if (window.visualViewport) {
@@ -356,28 +352,31 @@ function setFullscreenVH() {
     window.removeEventListener('orientationchange', onVVChange);
   }
 
-function onVVChange() {
-  setFullscreenVH();
+  function onVVChange() {
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  wrapEl.style.height = h + 'px';
+  setFullscreenVH();
 
-  if (!panzoomInstance) return;
+  if (!panzoomInstance) return;
 
-  const t = getTfSafe();
-  if (!t) return;
+  // Bei starken Änderungen am unteren Ende wieder auf Fit oder letzten Fokus justieren
+  requestAnimationFrame(() => {
+    const min = currentMinScale;
+    const t = getTfSafe();
+    if (!t) return;
 
-  requestAnimationFrame(() => {
-    const id = lastFocusId || getFocusFromURL();
-    const fit = computeFit(START_X_PERCENT);
+    // Wenn wir sehr nahe an minScale sind, frisch fitten
+    if (Math.abs(t.scale - min) < 0.03) {
+      const fit = computeFit(START_X_PERCENT);
+      setOptsSafe({ minScale: fit.scale });
+      currentMinScale = fit.scale;
 
-    if (id) {
-      const pinLoc = getPinCenter(id);
-      if (pinLoc) {
-        const targetScale = Math.max(fit.scale, TARGET_SCALE);
-        panzoomInstance.zoomToPoint(targetScale, pinLoc.cx, pinLoc.cy, { animate: false });
-      }
-    } else {
-      panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: false });
-    }
-  });
+      const targetScale = Math.max(fit.scale, TARGET_SCALE);
+      const id = lastFocusId || getFocusFromURL();
+      const tf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: targetScale };
+      applyTransform(tf, false);
+    }
+  });
 }
 
   /* ====== Fit-Funktionen ====== */
@@ -389,6 +388,54 @@ function onVVChange() {
     return { scale, x, y };
   }
   
+function computeTransformForPin(id, scale) {
+  const c = getPinCenter(id);
+  if (!c) return null;
+
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // 1. Berechne die gewünschte Pan-Position.
+  // Pan-Wert ist der Unterschied zwischen Viewport-Mitte und dem skalierten Pin-Mittelpunkt.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+
+  const mapW = MAP_W * scale;
+  const mapH = MAP_H * scale;
+
+  // 2. Bounding (Begrenzung): Stelle sicher, dass die Karte nicht aus dem Sichtfeld rutscht.
+  let minX, maxX, minY, maxY;
+  
+  // Begrenzung für X
+  if (mapW >= rect.width) {
+    // Karte ist breiter als der Viewport
+    minX = rect.width - mapW;
+    maxX = 0;
+  } else {
+    // Karte ist schmaler, zentriere sie
+    minX = maxX = (rect.width - mapW) / 2;
+  }
+
+  // Begrenzung für Y
+  if (mapH >= rect.height) {
+    // Karte ist höher als der Viewport
+    minY = rect.height - mapH;
+    maxY = 0;
+  } else {
+    // Karte ist kürzer, zentriere sie
+    minY = maxY = (rect.height - mapH) / 2;
+  }
+
+  // 3. Klammere die berechneten Pan-Werte, damit sie innerhalb der Grenzen bleiben.
+  // Eine kleine Pufferzone (BLEED) kann die Animation weicher machen.
+  const BLEED = 10;
+  const finalX = clamp(x, minX - BLEED, maxX + BLEED);
+  const finalY = clamp(y, minY - BLEED, maxY + BLEED);
+
+  return { x: finalX, y: finalY, scale };
+}
+
 // Hilfsfunktion zum Begrenzen eines Werts
 function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
@@ -420,7 +467,7 @@ function getFocusFromURL() {
     return p.get('focus') || (hash.startsWith('#pin-') ? decodeURIComponent(hash.slice(5)) : null);
   } catch { return null; }
 }
-const TARGET_SCALE = 1; // zentral definieren
+const TARGET_SCALE = 1.8; // zentral definieren
 
 function logRect(r){ return { w: Math.round(r.width), h: Math.round(r.height) }; }
 
@@ -444,24 +491,18 @@ function debugFocus(id, scale){
   });
 }
   
-// Ersetze deine bestehende showMap-Funktion mit dieser Version
 function showMap(focusId = null) {
-  // Zerstöre die alte Instanz, falls sie existiert
-  if (panzoomInstance) {
-    panzoomInstance.destroy();
-    panzoomInstance = null;
-  }
-  
   // Tabs umschalten & UI aktualisieren
   document.getElementById('tab-map').classList.add('active');
   document.getElementById('tab-list').classList.remove('active');
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
-  // Mobile: Vollbild & Höhe setzen
+  // Mobil: Vollbild & Höhe setzen
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
+    wrapEl.style.height = (window.visualViewport?.height || window.innerHeight) + 'px';
     enableVHWatchers();
   }
 
@@ -471,53 +512,86 @@ function showMap(focusId = null) {
     // 1) Fit & minScale berechnen
     const fit = computeFit(START_X_PERCENT);
     const minScale = fit.scale;
+    currentMinScale = minScale;
+
+    // 2) Panzoom initialisieren (falls noch nicht geschehen)
+    if (!panzoomInstance) {
+      panzoomInstance = Panzoom(mapEl, {
+        contain: 'outside',
+        maxScale: 4,
+        startScale: fit.scale,
+        startX: fit.x,
+        startY: fit.y,
+        animate: true,
+        duration: 350,
+        easing: 'ease-in-out'
+      });
+      // Desktop: Mausrad-Zoom
+      wrapEl.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        panzoomInstance.zoomWithWheel(e, { animate: true });
+      }, { passive: false });
     
-    // 2) Panzoom initialisieren (immer neu)
-    panzoomInstance = Panzoom(mapEl, {
-      contain: 'outside',
-      maxScale: 4,
-      startScale: fit.scale,
-      startX: fit.x,
-      startY: fit.y,
-      animate: true,
-      duration: 350,
-      easing: 'ease-in-out',
-      minScale: minScale
-    });
-    
+      window.panzoomInstance = panzoomInstance;
+      window.wrapEl = wrapEl;
+      window.mapEl = mapEl;
+    } else {
+        // Bei erneuter Ansicht: minScale aktualisieren
+        panzoomInstance.setOptions({ minScale: minScale, animate: true });
+    }
+
     // 3) Ziel-ID bestimmen & Pin highlighten
     const rawId = focusId || lastFocusId || getFocusFromURL() || null;
     const id = (typeof resolveId === 'function') ? resolveId(rawId) : rawId;
-    
+
     if (id) {
       lastFocusId = id;
       highlightPin(id);
     } else {
       clearHighlight();
     }
-    
-    const pinLoc = id ? getPinCenter(id) : null;
+
+    // 4) Transformation berechnen
     const targetScale = Math.max(minScale, TARGET_SCALE);
+    const targetTf = id ? computeTransformForPin(id, targetScale) : { ...fit, scale: minScale };
     
-    if (pinLoc) {
-      panzoomInstance.zoomToPoint(targetScale, pinLoc.cx, pinLoc.cy, { animate: true });
-      console.log(`🔍 Fokus auf ${id} bei x:${Math.round(pinLoc.cx)} y:${Math.round(pinLoc.cy)} mit s:${targetScale.toFixed(2)}`);
+    // 5) Transformation anwenden
+    if (targetTf) {
+      // ✅ Korrigierte Methode: Pan-Befehl separat aufrufen
+      panzoomInstance.pan(targetTf.x, targetTf.y, { animate: true, duration: 350 });
+      
+      // ✅ Verzögerung: Zoom-Befehl mit einer kleinen Pause aufrufen
+      // Dies stellt sicher, dass Panzoom den Pan-Befehl verarbeitet,
+      // bevor der Zoom-Befehl eintrifft.
+      setTimeout(() => {
+        panzoomInstance.zoom(targetTf.scale, { animate: true, duration: 350 });
+      }, 50); // 50 Millisekunden Verzögerung
+
+      console.log(`🔍 Fokus auf ${id} → x:${Math.round(targetTf.x)} y:${Math.round(targetTf.y)} s:${targetTf.scale.toFixed(2)}`);
     } else {
-      panzoomInstance.setTransform(fit.x, fit.y, fit.scale, { animate: true });
       console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
     }
   }); // waitForImage
 }
 
+// Überarbeitete Funktion: Entfernung der unnötigen Begrenzung.
+function computeTransformForPin(id, scale) {
+  const c = getPinCenter(id);
+  if (!c) return null;
 
-// Füge diesen Block GANZ am Ende deines <script>-Tags hinzu
-// Er wird nur einmal beim Laden der Seite registriert
-wrapEl.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  if (panzoomInstance) { // Stellt sicher, dass die Instanz existiert
-    panzoomInstance.zoomWithWheel(e, { animate: true });
-  }
-}, { passive: false });
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
+
+  // Pan-Werte sind der Unterschied zwischen der Mitte des Viewports
+  // und dem skalierten Pin-Mittelpunkt.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+  
+  // Panzoom übernimmt die Begrenzung, wir müssen nur die reinen Werte liefern
+  return { x, y, scale };
+}
+  
   /* ====== LISTE & DATEN ====== */
 const categories = [
   // Kids / Freizeit
@@ -708,7 +782,7 @@ function renderList(areaIds){
     btn1.onclick = (e) => { e.stopPropagation(); lastFocusId = id; openSheet(id); }; // << gemerkt
 
     const btn2 = document.createElement('button'); btn2.className = 'btn ghost'; btn2.textContent = 'Auf Karte zeigen';
-    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); };
+    btn2.onclick = (e) => { e.stopPropagation(); lastFocusId = id; showMap(id); }; // << neu: direkt mit ID
 
     actions.append(btn1, btn2);
     body.append(h, meta, txt, actions);
@@ -752,32 +826,35 @@ function renderList(areaIds){
 
 
 function getPinCenter(id) {
-    const el = document.getElementById(`pin-${id}`);
-    if (!el) return null;
+  const el = document.getElementById(`pin-${id}`);
+  if (!el) return null;
 
-    const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
-    const dx = toNum(el.dataset.x);
-    const dy = toNum(el.dataset.y);
-    const wp = toNum(el.dataset.wp); // Pin-Breite in %
+  // robustes Parsen (unterstützt "54,4" u. "54.4")
+  const toNum = v => v == null ? NaN : parseFloat(String(v).replace(',', '.'));
 
-    if (!Number.isNaN(dx) && !Number.isNaN(dy) && !Number.isNaN(wp)) {
-        // Die Pin-Breite wird korrekt aus data-wp berechnet
-        const pinWidth = (wp / 100) * MAP_W;
+  const dx = toNum(el.dataset.x);  // left in %
+  const dy = toNum(el.dataset.y);  // top in %
+  const wp = toNum(el.dataset.wp); // box-breite in % (von MAP_W)
 
-        // Die Pin-Höhe wird aus der Pin-Breite und dem Seitenverhältnis des Bildes berechnet
-        // Das img-Element innerhalb des Pins hat eine Breite von 70%
-        const imgEl = el.querySelector('img');
-        const imgRatio = imgEl.naturalWidth / imgEl.naturalHeight;
-        const pinHeight = pinWidth * (el.offsetHeight / el.offsetWidth); // Verwendet das tatsächliche Seitenverhältnis der Pin-Box
-        
-        // Oder sicherer:
-        // const pinHeight = (wp / 100) * MAP_H; // Bei quadratischer Pin-Box
+  if (!Number.isNaN(dx) && !Number.isNaN(dy)) {
+    // halbe Box-Breite in %-von-MAP_W
+    const halfW_pct_of_W = Number.isNaN(wp) ? 0 : wp / 2;
 
-        const cx = ((dx / 100) * MAP_W) + (pinWidth / 2);
-        const cy = ((dy / 100) * MAP_H) + (pinHeight / 2);
-        return { cx, cy };
-    }
-    return null;
+    // halbe Box-Höhe in %-von-MAP_H (Icon ist quadratisch ⇒ HöhePx = BreitePx)
+    // Höhe% relativ zur KartenHöhe = (BreitePx / MAP_H)*100 = wp * (MAP_W / MAP_H)
+    const halfH_pct_of_H = Number.isNaN(wp) ? 0 : (wp * (MAP_W / MAP_H)) / 2;
+
+    const cx = ((dx + halfW_pct_of_W) / 100) * MAP_W;
+    const cy = ((dy + halfH_pct_of_H) / 100) * MAP_H;
+    return { cx, cy };
+  }
+
+  // Dieser Code-Abschnitt wurde entfernt, da er die Ursache für NaN war.
+  // const cx = el.offsetLeft + el.offsetWidth / 2;
+  // const cy = el.offsetTop + el.offsetHeight / 2;
+  // return { cx, cy };
+
+  return null;
 }
   
 // ===== DEBUG-KIT: alles zur Konsole =====
@@ -923,22 +1000,6 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
