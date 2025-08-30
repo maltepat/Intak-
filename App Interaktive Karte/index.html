@@ -484,21 +484,21 @@ function showMap(focusId = null) {
       currentMinScale = minScale;
 
       // 3. Panzoom-Objekt erstellen, falls es nicht existiert (mit minimalen Optionen)
-      if (!panzoomInstance) {
-        panzoomInstance = Panzoom(mapEl, {
-          contain: 'outside',
-          maxScale: 4,
-          animate: true,
-          duration: 350,
-          easing: 'ease-in-out'
-          transformOrigin: { x: 0, y: 0 }
-        });
-        // Event Listener nur einmalig hinzufügen
-        wrapEl.addEventListener('wheel', (e) => {
-          e.preventDefault();
-          panzoomInstance.zoomWithWheel(e, { animate: true });
-        }, { passive: false });
-      }
+if (!panzoomInstance) {
+  panzoomInstance = Panzoom(mapEl, {
+    contain: 'outside',
+    maxScale: 4,
+    animate: true,
+    duration: 350,
+    easing: 'ease-in-out', // Das fehlende Komma wurde hinzugefügt
+    transformOrigin: { x: 0, y: 0 }
+  });
+  // Event Listener nur einmalig hinzufügen
+  wrapEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    panzoomInstance.zoomWithWheel(e, { animate: true });
+  }, { passive: false });
+}
 
       // 4. JEDES MAL die Optionen setzen und die Karte auf den "fit"-Zustand zurücksetzen
       // Dies ist der entscheidende Schritt zur Vereinheitlichung.
@@ -937,6 +937,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
