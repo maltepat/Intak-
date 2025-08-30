@@ -389,53 +389,21 @@ function getTfSafe() {
   }
   
 function computeTransformForPin(id, scale) {
-  const c = getPinCenter(id);
-  if (!c) return null;
+  const c = getPinCenter(id);
+  if (!c) return null;
 
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width / 2;
-  const viewCy = rect.height / 2;
+  const rect = wrapEl.getBoundingClientRect();
+  const viewCx = rect.width / 2;
+  const viewCy = rect.height / 2;
 
-  // 1. Berechne die gewünschte Pan-Position.
-  // Pan-Wert ist der Unterschied zwischen Viewport-Mitte und dem skalierten Pin-Mittelpunkt.
-  const x = viewCx - (c.cx * scale);
-  const y = viewCy - (c.cy * scale);
-
-  const mapW = MAP_W * scale;
-  const mapH = MAP_H * scale;
-
-  // 2. Bounding (Begrenzung): Stelle sicher, dass die Karte nicht aus dem Sichtfeld rutscht.
-  let minX, maxX, minY, maxY;
-  
-  // Begrenzung für X
-  if (mapW >= rect.width) {
-    // Karte ist breiter als der Viewport
-    minX = rect.width - mapW;
-    maxX = 0;
-  } else {
-    // Karte ist schmaler, zentriere sie
-    minX = maxX = (rect.width - mapW) / 2;
-  }
-
-  // Begrenzung für Y
-  if (mapH >= rect.height) {
-    // Karte ist höher als der Viewport
-    minY = rect.height - mapH;
-    maxY = 0;
-  } else {
-    // Karte ist kürzer, zentriere sie
-    minY = maxY = (rect.height - mapH) / 2;
-  }
-
-  // 3. Klammere die berechneten Pan-Werte, damit sie innerhalb der Grenzen bleiben.
-  // Eine kleine Pufferzone (BLEED) kann die Animation weicher machen.
-  const BLEED = 10;
-  const finalX = clamp(x, minX - BLEED, maxX + BLEED);
-  const finalY = clamp(y, minY - BLEED, maxY + BLEED);
-
-  return { x: finalX, y: finalY, scale };
+  // Berechne die ideale Position, um den Pin in die Mitte zu rücken.
+  // Wir überlassen das Begrenzen der Karte komplett dem Panzoom-Plugin.
+  const x = viewCx - (c.cx * scale);
+  const y = viewCy - (c.cy * scale);
+  
+  return { x, y, scale };
 }
-
+  
 // Hilfsfunktion zum Begrenzen eines Werts
 function clamp(value, min, max) {
   return Math.max(min, Math.min(value, max));
@@ -572,24 +540,6 @@ function showMap(focusId = null) {
       console.warn(`[MAP] Konnte Pin ${id} nicht fokussieren.`);
     }
   }); // waitForImage
-}
-
-// Überarbeitete Funktion: Entfernung der unnötigen Begrenzung.
-function computeTransformForPin(id, scale) {
-  const c = getPinCenter(id);
-  if (!c) return null;
-
-  const rect = wrapEl.getBoundingClientRect();
-  const viewCx = rect.width / 2;
-  const viewCy = rect.height / 2;
-
-  // Pan-Werte sind der Unterschied zwischen der Mitte des Viewports
-  // und dem skalierten Pin-Mittelpunkt.
-  const x = viewCx - (c.cx * scale);
-  const y = viewCy - (c.cy * scale);
-  
-  // Panzoom übernimmt die Begrenzung, wir müssen nur die reinen Werte liefern
-  return { x, y, scale };
 }
   
   /* ====== LISTE & DATEN ====== */
@@ -1000,6 +950,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
