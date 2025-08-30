@@ -467,6 +467,7 @@ function showMap(focusId = null) {
   wrapEl.classList.add('active');
   document.getElementById('list').style.display = 'none';
 
+
   if (isMobile()) {
     enterMapFullscreen();
     setFullscreenVH();
@@ -933,10 +934,12 @@ function getPinCenter(id) {
 
   /* ====== Start ====== */
   render();
+  openSheet()
   showList(); // immer mit Liste starten
 </script>
 </body>
 </html>
+
 
 
 
