@@ -486,11 +486,12 @@ function showMap(focusId = null) {
       // 3. Panzoom-Objekt erstellen, falls es nicht existiert (mit minimalen Optionen)
 if (!panzoomInstance) {
   panzoomInstance = Panzoom(mapEl, {
-    maxScale: 4,
+    maxScale: 3,
     animate: true,
     duration: 1000,
     easing: 'ease-in-out', // Das fehlende Komma wurde hinzugefügt
     transformOrigin: { x: 0, y: 0 }
+    pinchSensitivity: 0.5
   });
   // Event Listener nur einmalig hinzufügen
   wrapEl.addEventListener('wheel', (e) => {
@@ -936,6 +937,7 @@ function getPinCenter(id) {
 </script>
 </body>
 </html>
+
 
 
 
